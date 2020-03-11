@@ -3,7 +3,7 @@ import requests
 """
 Workflow of this process: Instantiate class and pass AUTH_CODE
 """
-class Freesound_connector():
+class FreesoundInterface():
     def __init__(self, auth_code):
         self.client_id = "bLrLdiV8lf8Pk8D8oEDC"
         self.api_key = "RbBBCqZxsPym6J0ykeFpawC0HWuPRebVcgtSv2uU"
@@ -11,7 +11,7 @@ class Freesound_connector():
         self.auth_code = auth_code
         self.license = "\"Creative Commons 0\""
         self.sample_rate = "44100"
-        self.duration_from = "0.1"
+        self.duration_from = "3.0"
         self.duration_to = "5.0"
 
         # Establish connection
@@ -25,14 +25,14 @@ class Freesound_connector():
             self.save_access_token_to_file(access_token)
             print("New access token created.")
 
-    def search(self, term, tags):
+    def search(self, term, tags, ac_single_event=True):
         """
         Search for a given term.
         :param term: The search term
         :param tags: The tags that should be associated with the sound
         :return: List of results
         """
-        response = self.create_search_request(term, tags)
+        response = self.create_search_request(term, tags, ac_single_event)
         results_list = response["results"]
 
         return results_list
@@ -55,11 +55,12 @@ class Freesound_connector():
         response = requests.post(QUERY, data=payload, headers=headers)
         return response.json()["access_token"]
 
-    def create_search_request(self, term, tags):
+    def create_search_request(self, term, tags, ac_single_event):
         """
         Creates and makes an API search call to freesound.org with the specified parameters
         :param term: The search term
         :param tags: The tags associated with the sound
+        :param ac_single_event: Whether only sounds containing a single sound event should be queried
         :return: The API response (in Python dict format)
         """
         # Convert tags from list to string
@@ -70,9 +71,10 @@ class Freesound_connector():
         else:
             tags_str = ""
 
+        ac_single_event_str = " ac_single_event: True" if ac_single_event else ""
         FILTERS = "&filter=license:" + self.license + " " \
                   + "duration:[" + self.duration_from + " TO " + self.duration_to + "]" \
-                  + tags_str
+                  + tags_str + ac_single_event_str
         FILTERS = FILTERS + " " + "samplerate:" + self.sample_rate + " " + "type:wav"
         QUERY = "https://freesound.org/apiv2/search/text/?query=" + term + FILTERS + "&token=" + self.api_key
         response = requests.get(QUERY)
