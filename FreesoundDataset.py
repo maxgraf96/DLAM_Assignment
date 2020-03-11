@@ -37,19 +37,27 @@ class FreesoundDataset(Dataset):
         file_name = os.path.join(self.root_dir, self.freesound_frame.iloc[idx, 0])
         # Load using file's default sample rate
         sig, sr = librosa.load(file_name, sr=None, mono=True)
+        # Normalize signal
+        max_val = np.max((np.abs(np.min(sig)), np.max(sig)))
+        sig = np.divide(sig, max_val)
         # Trim silence at beginning and end
         sig = librosa.effects.trim(sig)[0]
         # Fix to specified length
         sig = librosa.util.fix_length(sig, SIG_LENGTH * GLOBAL_SR)
-        # Calculate Magnitude STFT
-        spec = np.abs(librosa.stft(sig))
+        # Calculate Mel spectrogram
+        # Use 87 mel bins to make the resulting spec quadratic 87x87
+        mel_spec = librosa.feature.melspectrogram(sig, GLOBAL_SR, n_mels=87)
+
+        # Normalise mel spectrogram
+        mellog = np.log(mel_spec + 1e-9)
+        mel_spec = librosa.util.normalize(mellog)
         # Add "color" channel dimension
-        spec = np.expand_dims(spec, axis=0)
+        mel_spec = np.expand_dims(mel_spec, axis=0)
 
         # Get descriptors: Currently this is the Class Number
         descriptors = self.freesound_frame.iloc[idx, 2]
         descriptors = np.array([descriptors])
-        sample = {'sound': spec, 'descriptors': descriptors}
+        sample = {'sound': mel_spec, 'descriptors': descriptors}
 
         if self.transform:
             sample = self.transform(sample)
@@ -64,4 +72,4 @@ class ToTensor(object):
         spec, descriptors = sample['sound'], sample['descriptors']
         sound = torch.from_numpy(spec)
         # TODO implement number mapping for descriptors
-        return {'sound': sound ,'descriptors': torch.from_numpy(descriptors)}
+        return {'sound': sound, 'descriptors': torch.from_numpy(descriptors)}

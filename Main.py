@@ -20,8 +20,8 @@ from VAE import VAE
 
 # Hyperparameters
 cuda = torch.cuda.is_available()
-batch_size = 128
-epochs = 5
+batch_size = 4
+epochs = 10
 seed = 1
 log_interval = 10
 
@@ -86,7 +86,6 @@ optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logvar):
-    # BCE = F.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
     BCE = F.binary_cross_entropy(recon_x, x, reduction='sum')
 
     # see Appendix B from VAE paper:
@@ -100,11 +99,12 @@ def loss_function(recon_x, x, mu, logvar):
 def train(epoch):
     model.train()
     train_loss = 0
-    test = enumerate(train_loader)
-    for batch_idx, (data, _) in enumerate(train_loader):
+    for batch_idx, (data, label) in enumerate(train_loader):
         data = data.to(device)
         optimizer.zero_grad()
         recon_batch, mu, logvar = model(data)
+        # Use if nans start showing up again
+        # nans = (recon_batch != recon_batch).any()
         loss = loss_function(recon_batch, data, mu, logvar)
         loss.backward()
         train_loss += loss.item()
@@ -124,9 +124,9 @@ if __name__ == "__main__":
         # test(epoch)
         with torch.no_grad():
             # 64 => 8x8 matrix, 4 => bottleneck dimension of VAE / Seems to be batch size???, spec height, spec width
-            sample = torch.randn(3, 4, 1025, 87).to(device)
+            sample = torch.randn(3, 4, 87, 87).to(device)
             sample = model.decode(sample).cpu()
-            save_image(sample.view(3, 1, 1025, 87),
+            save_image(sample.view(3, 1, 87, 87),
                        'results/sample_' + str(epoch) + '.png')
 
 # def test(epoch):
