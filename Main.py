@@ -15,10 +15,11 @@ import pandas as pd
 import DatasetCreator
 from FreesoundDataset import FreesoundDataset, ToTensor
 from FreesoundInterface import FreesoundInterface
-from SpecVAE import SpecVAE
+from SpecVAE import SpecVAECNN, SpecVAEANN
 from VAE import VAE
 
 # Hyperparameters
+MODEL_PATH = "spec_vae.model"
 cuda = torch.cuda.is_available()
 batch_size = 4
 epochs = 10
@@ -34,55 +35,44 @@ cuda = False
 
 kwargs = {'num_workers': 1, 'pin_memory': True} if cuda else {}
 
-# test_loader = torch.utils.data.DataLoader(
-#     datasets.MNIST('../data', train=False, transform=transforms.ToTensor()),
-#     batch_size=batch_size, shuffle=True, **kwargs)
-
-
 # Establish connection to freesound.org
 # NB: The auth_code needs to be regenerated every day!
-fs_interface = FreesoundInterface(auth_code="mp5UjlwibNuMLfgvResm00qRU1ovFL")
+fs_interface = FreesoundInterface(auth_code="iBGdXAJ6f3M9vdNJwrDqtD8cicLaIF")
 
 root_dir = "test1"
 # Terms and instrument categories must always have the same length
-terms = ["synth note", "piano note", "guitar note"]
+terms = ["synth", "piano", "guitar"]
 instrument_categories = ["synth", "piano", "guitar"]
 tags = []
-
+# Only look for sounds with a single sonic event
+ac_single_event = True
+# Look for single note
+ac_note_names = ["A2"]
 # Path to dataset csv
 path_csv = "data/" + root_dir + "/" + root_dir + ".csv"
 
-# First check if any data for this dataset was queried yet
-# If not, query all the data
-if not os.path.exists(path_csv):
-    for i in range(len(terms)):
-        # Create part: This could be something like a set of files describing a bright synth
-        DatasetCreator.create_part(fs_interface, root_dir, terms[i], tags, instrument_categories[i], class_nr=i)
+# Downloads sounds using the specifications provided above
+# DatasetCreator.download_sounds(fs_interface, root_dir, terms, tags, instrument_categories, ac_single_event, ac_note_names, path_csv)
 
-else:
-    # Some part of the data already exists => go over dataframe and check which parts already exist
-    # And only add those parts that don't exist yet
-    # Get instrument category column
-    col_category = pd.read_csv(path_csv).values[:, 1]
-    for i in range(len(terms)):
-        if instrument_categories[i] not in col_category:
-            # Create part: This could be something like a set of files describing a bright synth
-            DatasetCreator.create_part(fs_interface, root_dir, terms[i], tags, instrument_categories[i], class_nr=i)
+# Import downloaded pack
+root_dir = "Arturia MicroBrute Saw Oscillator"
+path_pack_csv = "data" + os.path.sep + root_dir + os.path.sep + root_dir + ".csv"
+DatasetCreator.import_offline_pack(root_dir, path_pack_csv, instrument_category="synth")
 
+# Create dataset
 transform = ToTensor()
-fs_dataset = FreesoundDataset(csv_file="data/" + root_dir + "/" + root_dir + ".csv", root_dir="data/" + root_dir,
+fs_dataset = FreesoundDataset(csv_file="data" + os.path.sep + root_dir + os.path.sep + root_dir + ".csv",
+                              root_dir="data" + os.path.sep + root_dir,
                               transform=transform)
 
-example = fs_dataset.__getitem__(0)
-
-# TODO do cool stuff with dataset :D
 # Create dataloader
 train_loader = DataLoader(fs_dataset, batch_size=4,
-                          shuffle=True, num_workers=4)
+                          shuffle=True, num_workers=8)
 
 # Create and initialise VAE
-model = SpecVAE().to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+model = SpecVAECNN().to(device)
+# model = SpecVAEANN().to(device)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 # Reconstruction + KL divergence losses summed over all elements and batch
 def loss_function(recon_x, x, mu, logvar):
@@ -119,15 +109,21 @@ def train(epoch):
           epoch, train_loss / len(train_loader.dataset)))
 
 if __name__ == "__main__":
-    for epoch in range(1, epochs + 1):
-        train(epoch)
-        # test(epoch)
-        with torch.no_grad():
-            # 64 => 8x8 matrix, 4 => bottleneck dimension of VAE / Seems to be batch size???, spec height, spec width
-            sample = torch.randn(3, 4, 87, 87).to(device)
-            sample = model.decode(sample).cpu()
-            save_image(sample.view(3, 1, 87, 87),
-                       'results/sample_' + str(epoch) + '.png')
+    if not os.path.exists(MODEL_PATH):
+        for epoch in range(1, epochs + 1):
+            train(epoch)
+            # test(epoch)
+            with torch.no_grad():
+                # 3 => 3x1 matrix, 4 => number of channels in the bottleneck dimension of VAE /, spec height, spec width
+                sample = torch.randn(3, 4, 257, 259).to(device)
+                sample = model.decode(sample).cpu()
+                save_image(sample.view(3, 1, 257, 259),
+                           'results/sample_' + str(epoch) + '.png')
+        # Save model so we don't have to train every time
+        torch.save(model, MODEL_PATH)
+    else:
+        model = torch.load(MODEL_PATH)
+        model.eval()
 
 # def test(epoch):
 #     model.eval()

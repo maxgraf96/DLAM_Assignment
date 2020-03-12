@@ -7,9 +7,11 @@ import torch
 from torch.utils.data import Dataset
 
 # Desired signal length in seconds
-SIG_LENGTH = 1
+SIG_LENGTH = 3
 # Sample rate
 GLOBAL_SR = 44100
+# Hop size for STFT
+HOP_SIZE = 512
 
 class FreesoundDataset(Dataset):
     """
@@ -34,36 +36,43 @@ class FreesoundDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
+        # Get spectrogram
         file_name = os.path.join(self.root_dir, self.freesound_frame.iloc[idx, 0])
-        # Load using file's default sample rate
-        sig, sr = librosa.load(file_name, sr=None, mono=True)
-        # Normalize signal
-        max_val = np.max((np.abs(np.min(sig)), np.max(sig)))
-        sig = np.divide(sig, max_val)
-        # Trim silence at beginning and end
-        sig = librosa.effects.trim(sig)[0]
-        # Fix to specified length
-        sig = librosa.util.fix_length(sig, SIG_LENGTH * GLOBAL_SR)
-        # Calculate Mel spectrogram
-        # Use 87 mel bins to make the resulting spec quadratic 87x87
-        mel_spec = librosa.feature.melspectrogram(sig, GLOBAL_SR, n_mels=87)
-
-        # Normalise mel spectrogram
-        mellog = np.log(mel_spec + 1e-9)
-        mel_spec = librosa.util.normalize(mellog)
-        # Add "color" channel dimension
-        mel_spec = np.expand_dims(mel_spec, axis=0)
+        spec = get_spectrogram(file_name)
+        # Add "color" channel dimension for pytorch
+        spec = np.expand_dims(spec, axis=0)
 
         # Get descriptors: Currently this is the Class Number
         descriptors = self.freesound_frame.iloc[idx, 2]
         descriptors = np.array([descriptors])
-        sample = {'sound': mel_spec, 'descriptors': descriptors}
+        sample = {'sound': spec, 'descriptors': descriptors}
 
         if self.transform:
             sample = self.transform(sample)
 
         return sample['sound'], sample['descriptors']
 
+def get_spectrogram(path):
+    # Load using file's default sample rate
+    sig, sr = librosa.load(path, sr=None, mono=True)
+    # Normalize signal
+    max_val = np.max((np.abs(np.min(sig)), np.max(sig)))
+    sig = np.divide(sig, max_val)
+    # Trim silence at beginning and end
+    sig = librosa.effects.trim(sig)[0]
+    # Fix to specified length
+    sig = librosa.util.fix_length(sig, SIG_LENGTH * GLOBAL_SR)
+    # Calculate Mel spectrogram
+    # Use 87 mel bins to make the resulting spec quadratic 87x87
+    # spec = librosa.feature.melspectrogram(sig, GLOBAL_SR, n_mels=87)
+
+    spec = np.abs(librosa.core.stft(sig, n_fft=512, hop_length=HOP_SIZE))
+    # Normalise
+    # spec = np.log(spec + 1e-9)
+
+    spec = librosa.util.normalize(spec)
+
+    return spec
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
