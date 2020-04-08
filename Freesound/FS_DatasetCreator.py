@@ -3,6 +3,10 @@ import os
 import librosa
 import pandas as pd
 from pathlib import Path
+import numpy as np
+
+from Freesound import FS_FreesoundDataset
+
 
 def import_offline_pack(root_dir, path_pack_csv, instrument_category):
     """
@@ -13,14 +17,27 @@ def import_offline_pack(root_dir, path_pack_csv, instrument_category):
     if not os.path.exists(path_pack_csv):
         # Create list for annotation data
         data = []
+        means = []
+        stds = []
         sounds = Path("data" + os.path.sep + root_dir).rglob("*.wav")
 
         # Create annotation data
         for sound in sounds:
             path = str(sound)
-            # Check validity
+            # Check validity and calculate mean and std
             try:
-                librosa.load(path, sr=None, mono=True)
+                sig, sr = librosa.load(path, sr=None, mono=True)
+                # Trim silence at beginning and end
+                sig = librosa.effects.trim(sig)[0]
+                # Fix to specified length
+                sig = librosa.util.fix_length(sig, FS_FreesoundDataset.SIG_LENGTH * FS_FreesoundDataset.GLOBAL_SR)
+
+                # Calculate spectrogram
+                spec = np.abs(librosa.core.stft(sig, n_fft=512, hop_length=FS_FreesoundDataset.HOP_SIZE))
+
+                # Get mean and standard deviation and add to global of dataset
+                means.append(np.mean(spec))
+                stds.append(np.std(spec))
             except:
                 # File invalid => delete and continue
                 os.remove(path)
@@ -34,16 +51,14 @@ def import_offline_pack(root_dir, path_pack_csv, instrument_category):
 
         # Convert annotation data to dataframe
         df = pd.DataFrame(data, columns=["Name", "Instrument Class", "Class Number", "Tags"])
-        # Set dataframe path
-        path_df = root_dir + ".csv"
-        if not os.path.exists(path_df):
-            # Save dataframe to CSV
-            df.to_csv(path_pack_csv, index=False)
-        else:
-            # Concat df to existing data
-            existing = pd.read_csv(path_df)
-            df = pd.concat([existing, df])
-            df.to_csv(path_pack_csv, index=False)
+        # Save dataframe to CSV
+        df.to_csv(path_pack_csv, index=False)
+        # Save mean and std to csv file
+        mean = np.mean(means)
+        std = np.mean(stds)
+        mean_std_data = [[mean, std]]
+        mean_std_df = pd.DataFrame(mean_std_data, columns=["Mean", "Standard deviation"])
+        mean_std_df.to_csv(path_pack_csv[:-4] + "_mean_std.csv", index=False)
         print("Done importing pack '" + root_dir + "'.")
     else:
         print("Pack " + root_dir + " already exists.")

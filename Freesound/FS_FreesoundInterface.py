@@ -119,9 +119,9 @@ class FreesoundInterface():
         return response.content
 
     def save_access_token_to_file(self, token):
-        text_file = open("access_token.txt", "w")
+        text_file = open("../access_token.txt", "w")
         text_file.write(token)
         text_file.close()
 
     def get_access_token_from_file(self):
-        return open("access_token.txt", "r").read()
+        return open("../access_token.txt", "r").read()

@@ -12,6 +12,9 @@ SIG_LENGTH = 3
 GLOBAL_SR = 44100
 # Hop size for STFT
 HOP_SIZE = 512
+SPEC_DIMS_W = 257
+SPEC_DIMS_H = 259
+SPEC_DIMS = SPEC_DIMS_W * SPEC_DIMS_H
 
 class FreesoundDataset(Dataset):
     """
@@ -26,6 +29,10 @@ class FreesoundDataset(Dataset):
                 on a sample.
         """
         self.freesound_frame = pd.read_csv(csv_file)
+        # Get precalculated means and stds
+        self.mean_std_df = pd.read_csv(csv_file[:-4] + "_mean_std.csv")
+        self.mean = self.mean_std_df.iloc[0, 0]
+        self.std = self.mean_std_df.iloc[0, 1]
         self.root_dir = root_dir
         self.transform = transform
 
@@ -38,7 +45,7 @@ class FreesoundDataset(Dataset):
 
         # Get spectrogram
         file_name = os.path.join(self.root_dir, self.freesound_frame.iloc[idx, 0])
-        spec = get_spectrogram(file_name)
+        spec = get_spectrogram(file_name, self.mean, self.std)
         # Add "color" channel dimension for pytorch
         spec = np.expand_dims(spec, axis=0)
 
@@ -52,25 +59,19 @@ class FreesoundDataset(Dataset):
 
         return sample['sound'], sample['descriptors']
 
-def get_spectrogram(path):
+def get_spectrogram(path, mean, std):
     # Load using file's default sample rate
     sig, sr = librosa.load(path, sr=None, mono=True)
-    # Normalize signal
-    max_val = np.max((np.abs(np.min(sig)), np.max(sig)))
-    sig = np.divide(sig, max_val)
     # Trim silence at beginning and end
     sig = librosa.effects.trim(sig)[0]
     # Fix to specified length
     sig = librosa.util.fix_length(sig, SIG_LENGTH * GLOBAL_SR)
-    # Calculate Mel spectrogram
-    # Use 87 mel bins to make the resulting spec quadratic 87x87
-    # spec = librosa.feature.melspectrogram(sig, GLOBAL_SR, n_mels=87)
 
+    # Calculate Spectrogram
     spec = np.abs(librosa.core.stft(sig, n_fft=512, hop_length=HOP_SIZE))
-    # Normalise
-    # spec = np.log(spec + 1e-9)
 
-    spec = librosa.util.normalize(spec)
+    # Normalise by precalculated mean and standard deviation of dataset
+    spec = (spec - mean) / std
 
     return spec
 
@@ -79,6 +80,6 @@ class ToTensor(object):
 
     def __call__(self, sample):
         spec, descriptors = sample['sound'], sample['descriptors']
-        sound = torch.from_numpy(spec)
+        sound = torch.from_numpy(spec).float()
         # TODO implement number mapping for descriptors
         return {'sound': sound, 'descriptors': torch.from_numpy(descriptors)}
