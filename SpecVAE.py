@@ -2,8 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from Freesound import Plot
-from Freesound.FS_FreesoundDataset import SPEC_DIMS, SPEC_DIMS_W, SPEC_DIMS_H
+# from Freesound import Plot
 
 # Parameters for CNN
 kernel_size = 17
@@ -58,17 +57,21 @@ class SpecVAECNN(SpecVAE):
 
         # Plot latent representations if wanted
         # Currently plot it at the beginning, every epoch / 3 times, and at the end
-        if self.is_plot and (self.current_epoch == 1 or self.current_epoch % 5 == 0):
-            Plot.plot_latent_representations_cnn(x, mu, is_plot_original=False)
+        # if self.is_plot and (self.current_epoch == 1 or self.current_epoch % 5 == 0):
+        #     Plot.plot_latent_representations_cnn(x, mu, is_plot_original=False)
 
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
 
 class SpecVAEANN(SpecVAE):
-    def __init__(self, epochs, is_plot=False):
+    def __init__(self, spec_width, spec_height, epochs, is_plot=False):
         SpecVAE.__init__(self, epochs, is_plot)
 
-        self.fc1 = nn.Linear(SPEC_DIMS, 1024)
+        self.spec_width = spec_width
+        self.spec_height = spec_height
+        self.spec_dims = spec_width * spec_height
+
+        self.fc1 = nn.Linear(self.spec_dims, 1024)
         self.fc1_1 = nn.Linear(1024, 768)
         self.fc1_2 = nn.Linear(768, 400)
         self.fc1_3 = nn.Linear(400, 200)
@@ -80,7 +83,7 @@ class SpecVAEANN(SpecVAE):
         self.fc3_2 = nn.Linear(400, 768)
         self.fc3_3 = nn.Linear(768, 1024)
 
-        self.fc4 = nn.Linear(1024, SPEC_DIMS)
+        self.fc4 = nn.Linear(1024, self.spec_dims)
 
     def encode(self, x):
         # Flatten input
@@ -101,11 +104,11 @@ class SpecVAEANN(SpecVAE):
         mu, logvar = self.encode(x)
 
         # Plot latent representation at the beginning and end
-        if self.is_plot and (self.current_epoch == 1 or self.current_epoch == self.total_epochs):
-            Plot.plot_latent_representations_ann(x, mu, is_plot_original=False)
+        # if self.is_plot and (self.current_epoch == 1 or self.current_epoch == self.total_epochs):
+        #     Plot.plot_latent_representations_ann(x, mu, is_plot_original=False)
 
         z = self.reparameterize(mu, logvar)
         decoded = self.decode(z)
         # "Unflatten" => turn vector back into spectrogram
-        decoded = decoded.view(SPEC_DIMS_W, SPEC_DIMS_H)
+        decoded = decoded.view(self.spec_width, self.spec_height)
         return decoded, mu, logvar

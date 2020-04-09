@@ -36,7 +36,6 @@ class VAE(nn.Module):
         return torch.sigmoid(self.conv4(h3))
 
     def forward(self, x):
-        # mu, logvar = self.encode(x.view(-1, 784))
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
