@@ -52,9 +52,6 @@ def initialise_dataset():
     number_of_wavs = len([name for name in os.listdir(piano_dir)])
     piano_wavs = Path(piano_dir).rglob("*.wav")
     for wav in piano_wavs:
-        # if 'chpn_op7_1.wav' not in str(wav):
-        #     continue # TODO CHANGE BACK!!!
-
         counter += 1
         wav_str = str(wav)
         # Get file name

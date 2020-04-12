@@ -23,7 +23,7 @@ n_mels = 512
 # Hyperparameters for torch
 cuda = torch.cuda.is_available()
 batch_size_cnn = 160
-epochs = 20
+epochs = 12
 log_interval = 60
 
 # CNN params

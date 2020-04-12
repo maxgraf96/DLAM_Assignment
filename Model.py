@@ -54,10 +54,13 @@ class Model:
             epoch, train_loss / len(train_loader.dataset)))
 
         current_avg_loss = train_loss / len(train_loader.dataset)
-        self.sameloss = np.isclose(current_avg_loss, self.samelosscounter, rtol=0, atol=0.00001)
+        self.sameloss = np.isclose(current_avg_loss, self.samelosscounter, rtol=0, atol=0.0001)
         if self.sameloss:
             self.samelosscounter += 1
+            print("Same loss counter +1. Is now: " + str(self.samelosscounter))
         else:
+            if self.samelosscounter > 0:
+                print("Same loss counter reset")
             self.samelosscounter = 0
 
         # Update previous loss
@@ -149,7 +152,7 @@ class Model:
         # plot_final_mel(inv_mag)
 
         if with_return:
-            sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=32, hop_length=hop_size, win_length=n_fft)
+            sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=50, hop_length=hop_size, win_length=n_fft)
 
             # When using mel specrogram
             # sig_result = librosa.feature.inverse.mel_to_audio(inv_mag, sample_rate, n_fft, hop_size, n_fft)

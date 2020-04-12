@@ -75,11 +75,11 @@ if __name__ == '__main__':
             # main.test(test_loader, epoch)
 
         # Save model so we don't have to train every time
-        # torch.save(model.state_dict(), model_path)
+        torch.save(model.state_dict(), model_path)
 
     # Generate something
-    gen = main.generate("data/piano/chpn_op7_1.wav")
-    gen = librosa.util.normalize(gen)
+    # gen = main.generate("data/piano/chpn_op7_1.wav")
+    # gen = librosa.util.normalize(gen)
 
     # Display (only works on IPython notebooks)
-    librosa.output.write_wav("output.wav", gen, sample_rate)
+    # librosa.output.write_wav("output.wav", gen, sample_rate)
