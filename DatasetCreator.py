@@ -4,7 +4,31 @@ from pathlib import Path
 import librosa
 import numpy as np
 
-from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate
+from Dataset import map_to_zero_one
+from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_height, width_seconds, spec_width, limit_s, \
+    n_mels
+
+
+def load_spectrogram(path):
+    # Load signal data, sample rate should always be 22050
+    sig, sr = librosa.load(path)
+
+    # Limit to 30s for now
+    # TODO change this later
+    sig = librosa.util.fix_length(sig, limit_s * sample_rate)
+
+    # Calculate STFT
+    spec = librosa.stft(sig, n_fft, hop_length=hop_size, window='hann')
+    # spec = librosa.feature.melspectrogram(sig, sr=sample_rate, n_fft=n_fft, hop_length=hop_size, n_mels=n_mels)
+
+    spec = np.abs(spec)
+    # Convert power to dB
+    spec = librosa.amplitude_to_db(spec, ref=np.max)
+    min_db = np.min(spec)
+    max_db = np.max(spec)
+    spec = map_to_zero_one(spec, min_db, max_db)
+
+    return spec
 
 def initialise_dataset():
     """
@@ -28,6 +52,9 @@ def initialise_dataset():
     number_of_wavs = len([name for name in os.listdir(piano_dir)])
     piano_wavs = Path(piano_dir).rglob("*.wav")
     for wav in piano_wavs:
+        # if 'chpn_op7_1.wav' not in str(wav):
+        #     continue # TODO CHANGE BACK!!!
+
         counter += 1
         wav_str = str(wav)
         # Get file name
@@ -44,18 +71,10 @@ def initialise_dataset():
         # Create folder
         Path(folder).mkdir(parents=True, exist_ok=True)
 
-        # Load signal data, sample rate should always be 22050
-        sig, sr = librosa.load(wav_str)
-
-        # Limit to 30s for now
-        # TODO change this later
-        sig = librosa.util.fix_length(sig, 30 * sample_rate)
-
-        # Calculate STFT
-        spec = librosa.stft(sig, n_fft, hop_length=hop_size, window='hann')
+        spec = load_spectrogram(wav_str)
 
         # Create square data points for the CNN
-        width = int(n_fft / 2) + 1
+        width = spec_width
         frame_counter = 0
         for frame in range(0, spec.shape[1], width):
             if frame + width > spec.shape[1]:

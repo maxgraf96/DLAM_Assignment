@@ -8,14 +8,17 @@ import torch
 from torch.utils.data import Dataset
 from scipy import stats
 
-from Hyperparameters import sep, gen_dir
+from Hyperparameters import sep, gen_dir, cuda
 
 
 def map_to_zero_one(spec, min_from, max_from):
-    for i in range(spec.shape[0]):
-        spec[i] = (1 - 0) * ((spec[i] - min_from) / (max_from - min_from))
-    return spec
+    return map_to_range(spec, min_from, max_from, 0, 1)
 
+def map_to_range(spec, input_start, input_end, output_start, output_end):
+    copy = np.copy(spec)
+    slope = 1.0 * (output_end - output_start) / (input_end - input_start)
+    copy = output_start + slope * (copy - input_start)
+    return copy
 
 class AssignmentDataset(Dataset):
     """
@@ -41,10 +44,9 @@ class AssignmentDataset(Dataset):
         self.length = len(self.filenames)
 
         # Load one spectrogram to get width and height
-        spec = np.load(self.filenames[0])
-        # self.spec_width = spec.shape[1]
-        # self.spec_height = spec.shape[0]
-        self.spec_dim = spec.shape[0]
+        mapped = self.get_spectrogram(self.filenames[0])
+        self.spec_height = mapped.shape[0]
+        self.spec_width = mapped.shape[1]
 
     def __len__(self):
         return self.length
@@ -57,12 +59,12 @@ class AssignmentDataset(Dataset):
         # Convert idx to filename
         path = self.filenames[idx]
 
-        mag, phase = self.get_spectrogram(path)
+        mapped = self.get_spectrogram(path)
 
-        # Add "color" channel dimension for pytorch
-        # spec = np.expand_dims(spec, axis=0)
+        # spec = np.stack((mapped, phase))
 
-        spec = np.stack((mag, phase))
+        # If only the magnitude is used another channel dimension is needed for pytorch
+        spec = np.expand_dims(mapped, axis=0)
         sample = {'sound': spec, 'filename': path}
 
         if self.transform:
@@ -75,30 +77,11 @@ class AssignmentDataset(Dataset):
             print("Error: Spectrogram for file '" + path + "' does not exist! Aborting...")
             return None
 
-        spec = np.load(path)
-
-        # Split into magnitude and phase
-        # TODO: Use this to split magnitude and phase right
-        # Or skip it and use griffin-lim
-        # S, P = librosa.core.magphase(spec)
-        mag = np.abs(spec)
-        phase = np.angle(spec)
-
-        # Standardise by precalculated mean and standard deviation of dataset
-        # spec = (spec - self.mean) / self.std
-
-        # Standardise using boxcox transformation and 0...1 mapping
-        # spec = standardise(spec)
-
-        return mag, phase
+        stft = np.load(path)
+        return stft
 
     def get_spec_dims(self):
-        # return self.spec_width, self.spec_height
-        return self.spec_dim
-
-    # def get_mean_std(self):
-    #     return self.mean, self.std
-
+        return self.spec_width, self.spec_height
 
 def standardise(spec):
     l2 = 10 ** -7

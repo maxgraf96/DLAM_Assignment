@@ -10,16 +10,21 @@ gen_dir = 'data' + os.path.sep + 'generated'
 
 # STFT params
 sample_rate = 22050
-n_fft = 512
-hop_size = 256
+n_fft = 2048
+hop_size = 512
 limit_s = 30
-spec_dim = int(n_fft / 2) + 1
+width_seconds = 0.2
+spec_width = int(width_seconds / (hop_size / sample_rate))
+spec_height = int(n_fft / 2) + 1
+# When using mel spectrogram
+n_mels = 512
+# spec_height = n_mels
 
 # Hyperparameters for torch
-model_path = "spec_vae.model"
 cuda = torch.cuda.is_available()
-batch_size_cnn = 1
-batch_size_ann = 10
+batch_size_cnn = 160
 epochs = 20
-seed = 1
-log_interval = 5
+log_interval = 60
+
+# CNN params
+input_channels = 1
