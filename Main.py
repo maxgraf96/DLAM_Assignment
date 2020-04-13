@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 import Dataset
 import DatasetCreator
-from Hyperparameters import batch_size_cnn, epochs, log_interval, sep, sample_rate
+from Hyperparameters import batch_size_cnn, epochs, log_interval, sep, sample_rate, device
 # Initialise dataset
 from Model import Model
 from SpecVAE import SpecVAECNN
@@ -15,7 +15,6 @@ from SpecVAE import SpecVAECNN
 model_path = "model.torch"
 
 # Pytorch init
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
 
 # device = "cpu"
@@ -23,7 +22,7 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() els
 
 # Initialise dataset (create spectrograms if not exist)
 DatasetCreator.initialise_dataset()
-root_dir = "data" + sep + "generated"                 # + sep + "chpn_op7_1"
+root_dir = "data" + sep + "generated" + sep + "chpn_op7_1"
 
 global main
 global dataset
@@ -31,8 +30,6 @@ global batch_size
 global spec_width, spec_height
 
 if __name__ == '__main__':
-    # Empty cuda memory cache
-    torch.cuda.empty_cache()
     # Create dataset
     transform = Dataset.ToTensor()
     dataset = Dataset.AssignmentDataset(root_dir=root_dir, transform=transform)
@@ -51,7 +48,7 @@ if __name__ == '__main__':
 
     else:
         model = SpecVAECNN(epochs, dataset.length).to(device)
-        optimizer = optim.Adam(model.parameters(), lr=10**-3, betas=(0.95, 0.999), eps=10**-8)
+        optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
         # Split into training and test sets
         train_size = int(len(dataset))
@@ -62,7 +59,7 @@ if __name__ == '__main__':
         # test_dataset = torch.utils.data.Subset(dataset, np.arange(train_size, dataset.length))
 
         # Create dataloaders
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=4, drop_last=True)
         # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4, drop_last=True)
 
         main = Model(model, device, batch_size, log_interval)
@@ -75,11 +72,14 @@ if __name__ == '__main__':
             # main.test(test_loader, epoch)
 
         # Save model so we don't have to train every time
-        torch.save(model.state_dict(), model_path)
+        # torch.save(model.state_dict(), model_path)
 
     # Generate something
-    # gen = main.generate("data/piano/chpn_op7_1.wav")
-    # gen = librosa.util.normalize(gen)
+    gen = main.generate("data/piano/chpn_op7_1.wav")
+    gen = librosa.util.normalize(gen)
 
     # Display (only works on IPython notebooks)
-    # librosa.output.write_wav("output.wav", gen, sample_rate)
+    librosa.output.write_wav("output.wav", gen, sample_rate)
+
+    # Empty cuda memory cache
+    torch.cuda.empty_cache()

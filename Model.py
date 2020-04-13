@@ -4,7 +4,7 @@ import torch
 from torch.nn import functional as F
 
 from Dataset import map_to_zero_one, map_to_range
-from DatasetCreator import load_spectrogram
+from DatasetCreator import create_spectrogram
 from Hyperparameters import spec_height, input_channels, sample_rate, n_fft, hop_size, spec_width, log_interval, n_mels
 from SpecVAE import plot_final, plot_final_mel
 
@@ -28,6 +28,7 @@ class Model:
         KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
         # Normalise KLD by batch size and size of spectrogram
         KLD /= self.batch_size
+        KLD *= 100
 
         return BCE + KLD
 
@@ -37,24 +38,31 @@ class Model:
         self.model.train()
         train_loss = 0
         for batch_idx, data in enumerate(train_loader):
-            data = data.to(self.device)
+            # Convert tensors to cuda
+            data['sound'] = data['sound'].to(self.device)
+            data['sound_synth'] = data['sound_synth'].to(self.device)
+            piano = data['sound']
+            # Get matching synth files
+            synth = data['sound_synth']
             optimizer.zero_grad()
             recon_batch, mu, logvar = self.model(data)
-            loss = self.loss_function(recon_batch.view(self.batch_size, input_channels, spec_height, spec_width), data, mu, logvar)
+            # Main point here: Loss function takes the synth sound as target, so the network learns
+            # to map the piano sound to the synth sound!
+            loss = self.loss_function(recon_batch.view(self.batch_size, input_channels, spec_height, spec_width), synth, mu, logvar)
             loss.backward()
             train_loss += loss.item()
             optimizer.step()
             if batch_idx % log_interval == 0 and epoch % 10 == 0:
                 print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(train_loader.dataset),
+                    epoch, batch_idx * len(piano), len(train_loader.dataset),
                            100. * batch_idx / len(train_loader),
-                           loss.item() / len(data)))
+                           loss.item() / len(piano)))
 
         print('====> Epoch: {} Average loss: {:.10f}'.format(
             epoch, train_loss / len(train_loader.dataset)))
 
         current_avg_loss = train_loss / len(train_loader.dataset)
-        self.sameloss = np.isclose(current_avg_loss, self.samelosscounter, rtol=0, atol=0.0001)
+        self.sameloss = np.isclose(current_avg_loss, self.samelosscounter, rtol=0.0001, atol=0.0001)
         if self.sameloss:
             self.samelosscounter += 1
             print("Same loss counter +1. Is now: " + str(self.samelosscounter))
@@ -71,9 +79,9 @@ class Model:
             print("Loss is the same since last three epochs. Early stopping")
             return True
 
-        # if epoch % 30 == 0:
-        # Plot snapshot of current representation
-        self.generate("data/piano/chpn_op7_1.wav", with_return=False)
+        if epoch % 20 == 0:
+            # Plot snapshot of current representation
+            self.generate("data/piano/chpn_op7_1.wav", with_return=False)
 
     def test(self, test_loader, epoch):
         self.model.eval()
@@ -83,12 +91,6 @@ class Model:
                 data = data.to(self.device)
                 recon_batch, mu, logvar = self.model(data)
                 test_loss += self.loss_function(recon_batch.view(self.batch_size, input_channels, spec_height, spec_height), data, mu, logvar).item()
-                if i == 0:
-                    n = min(data.size(0), 8)
-                    # comparison = torch.cat([data[:n],
-                    #                         recon_batch.view(self.batch_size, 1, SPEC_DIMS_W, SPEC_DIMS_H)[:n]])
-                    # save_image(comparison.cpu(),
-                    #            'results/reconstruction_' + str(epoch) + '.png', nrow=n)
 
         test_loss /= len(test_loader.dataset)
         print('====> Test set loss: {:.4f}'.format(test_loss))
@@ -96,7 +98,7 @@ class Model:
     def generate_sample(self, spec):
         with torch.no_grad():
             sample = torch.from_numpy(spec).to(self.device)
-            sample, mu, logvar = self.model(sample)
+            sample, mu, logvar = self.model.forward_sample(sample)
             return sample
 
     def generate_latent_sample(self, spec):
@@ -108,10 +110,10 @@ class Model:
     def generate(self, path, with_return=True):
         self.model.eval()
 
-        spec = load_spectrogram(path)
+        spec = create_spectrogram(path)
         if with_return:
             print("Original")
-            inv_db = map_to_range(spec, 0, 1, -80, 0)
+            inv_db = map_to_range(spec, 0, 1, -240, 0)
             inv_mag = librosa.db_to_amplitude(inv_db)
             plot_final(inv_mag)
             # plot_final_mel(spec)
@@ -141,7 +143,7 @@ class Model:
 
         # Invert result
         # STFT
-        inv_db = map_to_range(result, 0, 1, -80, 0)
+        inv_db = map_to_range(result, 0, 1, -240, 0)
         inv_mag = librosa.db_to_amplitude(inv_db)
 
         # Mel
@@ -152,12 +154,9 @@ class Model:
         # plot_final_mel(inv_mag)
 
         if with_return:
-            sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=50, hop_length=hop_size, win_length=n_fft)
+            sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
 
             # When using mel specrogram
             # sig_result = librosa.feature.inverse.mel_to_audio(inv_mag, sample_rate, n_fft, hop_size, n_fft)
-
-            # orig_griffin_lim = librosa.feature.inverse.griffinlim(pow, n_iter=32, hop_length=hop_size, win_length=n_fft-2)
-            # librosa.output.write_wav("orig_griffin_lim.wav", orig_griffin_lim, sample_rate)
 
             return sig_result

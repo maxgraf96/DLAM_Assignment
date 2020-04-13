@@ -9,7 +9,7 @@ from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_hei
     n_mels
 
 
-def load_spectrogram(path):
+def create_spectrogram(path):
     # Load signal data, sample rate should always be 22050
     sig, sr = librosa.load(path)
 
@@ -23,12 +23,40 @@ def load_spectrogram(path):
 
     spec = np.abs(spec)
     # Convert power to dB
-    spec = librosa.amplitude_to_db(spec, ref=np.max)
+    spec = librosa.amplitude_to_db(spec, ref=np.max, top_db=240)
     min_db = np.min(spec)
     max_db = np.max(spec)
     spec = map_to_zero_one(spec, min_db, max_db)
 
     return spec
+
+def create_datapoints(wav_path, mode, number_of_wavs, counter):
+    wav_str = str(wav_path)
+    # Get file name
+    filename = wav_str.split(sep)[-1][:-4]
+    folder = gen_dir + sep + filename + sep + mode
+    # Check if there is already an existing spectrogram
+    if os.path.exists(folder):
+        # print("Spectrogram for " + filename + " already exists. Skipping...")
+        return
+
+    # Print progress information
+    print('Generating ' + mode + ' spectrogram for file ' + filename + ': ' + str(counter) + ' / ' + str(number_of_wavs))
+
+    # Create folder
+    Path(folder).mkdir(parents=True, exist_ok=True)
+
+    spec = create_spectrogram(wav_str)
+
+    # Create data points for the CNN
+    width = spec_width
+    frame_counter = 0
+    for frame in range(0, spec.shape[1], width):
+        if frame + width > spec.shape[1]:
+            break
+        current = spec[:, frame: frame + width]
+        np.save(folder + sep + filename + "_" + str(frame_counter) + "_" + mode, current)
+        frame_counter += 1
 
 def initialise_dataset():
     """
@@ -41,51 +69,24 @@ def initialise_dataset():
     if not os.path.exists(gen_dir):
         Path(gen_dir).mkdir(parents=True, exist_ok=True)
 
-    # Create spectrograms for piano if they don't exist yet
+    # Create spectrograms
     piano_dir = 'data' + sep + 'piano'
+    synth_dir = 'data' + sep + 'synth'
     counter = 0
-
-    # Mean and standard deviation
-    means = []
-    stds = []
 
     number_of_wavs = len([name for name in os.listdir(piano_dir)])
     piano_wavs = Path(piano_dir).rglob("*.wav")
     for wav in piano_wavs:
+        # if 'chpn_op7_1' not in str(wav):
+        #     continue
         counter += 1
-        wav_str = str(wav)
-        # Get file name
-        filename = wav_str.split(sep)[-1][:-4]
-        folder = gen_dir + sep + filename
-        # Check if there is already an existing spectrogram
-        if os.path.exists(folder):
-            # print("Spectrogram for " + filename + " already exists. Skipping...")
-            continue
+        create_datapoints(wav, 'piano', number_of_wavs, counter)
 
-        # Print progress information
-        print('Generating spectrogram for file ' + filename + ': ' + str(counter) + ' / ' + str(number_of_wavs))
-
-        # Create folder
-        Path(folder).mkdir(parents=True, exist_ok=True)
-
-        spec = load_spectrogram(wav_str)
-
-        # Create square data points for the CNN
-        width = spec_width
-        frame_counter = 0
-        for frame in range(0, spec.shape[1], width):
-            if frame + width > spec.shape[1]:
-                break
-            current = spec[:, frame : frame + width]
-            np.save(folder + sep + filename + "_" + str(frame_counter) + "_piano", current)
-            frame_counter += 1
-
-            # Get mean and std and append to list of all
-            # means.append(np.mean(current))
-            # stds.append(np.std(current))
-
-    # Save mean and std
-    # if not os.path.exists(gen_dir + sep + "mean.npy"):
-    #     np.save(gen_dir + sep + "mean", np.mean(means))
-    # if not os.path.exists(gen_dir + sep + "std.npy"):
-    #     np.save(gen_dir + sep + "std", np.mean(stds))
+    # Synth
+    counter = 0
+    synth_wavs = Path(synth_dir).rglob("*.wav")
+    for wav in synth_wavs:
+        # if 'chpn_op7_1' not in str(wav):
+        #     continue
+        counter += 1
+        create_datapoints(wav, 'synth', number_of_wavs, counter)

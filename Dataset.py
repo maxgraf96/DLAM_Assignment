@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 from scipy import stats
 
-from Hyperparameters import sep, gen_dir, cuda
+from Hyperparameters import sep, gen_dir, cuda, device
 
 
 def map_to_zero_one(spec, min_from, max_from):
@@ -40,7 +40,8 @@ class AssignmentDataset(Dataset):
         self.transform = transform
         piano_npys = Path(root_dir).rglob("*_piano.npy")
         self.filenames = [str(npy) for npy in piano_npys]
-        # TODO add synths here as well
+        synth_npys = Path(root_dir).rglob("*_synth.npy")
+        self.synth_filenames = [str(npy) for npy in synth_npys]
         self.length = len(self.filenames)
 
         # Load one spectrogram to get width and height
@@ -58,19 +59,21 @@ class AssignmentDataset(Dataset):
         # Get spectrogram
         # Convert idx to filename
         path = self.filenames[idx]
+        path_synth = self.synth_filenames[idx]
 
-        mapped = self.get_spectrogram(path)
-
-        # spec = np.stack((mapped, phase))
-
+        spec = self.get_spectrogram(path)
+        spec_synth = self.get_spectrogram(path_synth)
         # If only the magnitude is used another channel dimension is needed for pytorch
-        spec = np.expand_dims(mapped, axis=0)
-        sample = {'sound': spec, 'filename': path}
+        spec = np.expand_dims(spec, axis=0)
+        spec_synth = np.expand_dims(spec_synth, axis=0)
+        sample = {'sound': spec, 'sound_synth': spec_synth
+            # , 'filename': path
+                  }
 
         if self.transform:
             sample = self.transform(sample)
 
-        return sample['sound']
+        return sample
 
     def get_spectrogram(self, path):
         if not os.path.exists(path):
@@ -98,8 +101,11 @@ def standardise(spec):
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
-
     def __call__(self, sample):
         spec = sample['sound']
+        spec_synth = sample['sound_synth']
         sound = torch.from_numpy(spec).float()
-        return {'sound': sound, 'filename': sample['filename']}
+        sound_synth = torch.from_numpy(spec_synth).float()
+        return {'sound': sound, 'sound_synth': sound_synth
+            # , 'filename': sample['filename']
+                }

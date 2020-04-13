@@ -9,12 +9,11 @@ from Hyperparameters import batch_size_cnn, spec_height, input_channels, hop_siz
 
 # Parameters for CNN
 # kernel_size = 0
-padding = 0
-stride = 1
+padding = 1
+stride = 0
 
 # Parameters for ANN
 ZDIMS_ANN = 100
-channels_last = 8
 unflatten_dims = None
 
 class SpecVAE(nn.Module):
@@ -51,32 +50,32 @@ class SpecVAECNN(SpecVAE):
         SpecVAE.__init__(self, epochs, dataset_length, is_plot)
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(input_channels, 64, kernel_size=(2, 1), stride=(1, 1), padding=padding),
+            nn.Conv2d(input_channels, 64, kernel_size=(1, 4), stride=1, padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
-            nn.Conv2d(64, 128, kernel_size=(2, 2), stride=(1, 2), padding=padding),
+            nn.Conv2d(64, 128, kernel_size=(1, 4), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
-            nn.Conv2d(128, 256, kernel_size=(2, 2), stride=(1, 2), padding=padding),
+            nn.Conv2d(128, 256, kernel_size=(1, 2), stride=(1, 1), padding=padding),
             nn.BatchNorm2d(256),
-            nn.Tanh(),
-            nn.Conv2d(256, 512, kernel_size=(2, 2), stride=1, padding=padding),
-            nn.BatchNorm2d(512),
+            # nn.Tanh(),
+            # nn.Conv2d(256, 512, kernel_size=4, stride=1, padding=padding),
+            # nn.BatchNorm2d(512),
             # Flatten()
         )
 
         self.decoder = nn.Sequential(
             # UnFlatten(),
-            nn.ConvTranspose2d(512, 256, kernel_size=(2, 2), stride=1, padding=padding),
-            nn.BatchNorm2d(256),
-            nn.Tanh(),
-            nn.ConvTranspose2d(256, 128, kernel_size=(2, 2), stride=(1, 2), padding=padding),
+            # nn.ConvTranspose2d(512, 256, kernel_size=4, stride=1, padding=padding),
+            # nn.BatchNorm2d(256),
+            # nn.Tanh(),
+            nn.ConvTranspose2d(256, 128, kernel_size=(1, 2), stride=(1, 1), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
-            nn.ConvTranspose2d(128, 64, kernel_size=(2, 2), stride=(1, 2), padding=padding),
+            nn.ConvTranspose2d(128, 64, kernel_size=(1, 4), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
-            nn.ConvTranspose2d(64, input_channels, kernel_size=(2, 1), stride=(1, 1), padding=padding),
+            nn.ConvTranspose2d(64, input_channels, kernel_size=(1, 5), stride=1, padding=padding),
             nn.Sigmoid()
         )
 
@@ -84,7 +83,7 @@ class SpecVAECNN(SpecVAE):
         test_decode = self.decoder(test_encode)
         decoder_shape = test_decode.shape
         H_DIMS_CNN = test_encode.shape[0]
-        ZDIMS_CNN = 15
+        ZDIMS_CNN = batch_size_cnn
 
         self.spec_width = spec_width
         self.spec_height = spec_height
@@ -107,9 +106,24 @@ class SpecVAECNN(SpecVAE):
         return mu + eps * std
 
     def forward(self, x):
-        h = self.encoder(x)
-        z, mu, logvar = self.bottleneck(h)
+        piano = x['sound']
+        synth = x['sound_synth']
+        piano = self.encoder(piano)
+        synth = self.encoder(synth)
+        z, mu, logvar = self.bottleneck(piano)
+        z_s, mu_s, logvar_s = self.bottleneck(synth)
         # z = self.fc3(z)
+        z = self.decoder(z)
+        return z, mu_s, logvar_s
+
+    def forward_sample(self, sample):
+        """
+        Forward a single element (with no accompanying synth data) => only used for testing
+        :param sample:
+        :return:
+        """
+        sample = self.encoder(sample)
+        z, mu, logvar = self.bottleneck(sample)
         z = self.decoder(z)
         return z, mu, logvar
 
@@ -120,7 +134,7 @@ def plot_final(data):
     import matplotlib.pyplot as plt
     plt.figure(figsize=(14, 8))
     plt.subplot(1, 1, 1)
-    data_db = librosa.amplitude_to_db(data, ref=np.max)
+    data_db = librosa.amplitude_to_db(data, ref=np.max, top_db=240)
     librosa.display.specshow(data_db, y_axis='log', x_axis='time', sr=sample_rate, hop_length=hop_size)
     plt.colorbar(format='%+2.0f dB')
     plt.show()

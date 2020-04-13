@@ -9,6 +9,12 @@ sample_rate = 22050
 num_channels = 2
 
 def synthesise_midi_to_audio(midi_path, output_path, soundfont_path):
+    # Create destination folder if it doesn't exist
+    path_str = str(output_path)
+    dest_dir = path_str[:path_str.rfind(sep)]
+    if not os.path.exists(dest_dir):
+        Path(dest_dir).mkdir(parents=True, exist_ok=True)
+
     # Convert MIDI to raw PCM data
     raw_path = output_path[:-4] + ".dat"
     subprocess.call(['fluidsynth', '-F', raw_path, soundfont_path, midi_path, '-r', str(sample_rate)])
@@ -25,7 +31,7 @@ def synthesise_midi_to_audio(midi_path, output_path, soundfont_path):
 
 def synthesise_all(mode, soundfont_path):
     # Get midis
-    midis = Path("data/MIDI").rglob("*.mid")
+    midis = Path("data" + sep + "MIDI").rglob("*.mid")
     for midi in midis:
         # Convert path to string
         midi_str = str(midi)
@@ -46,7 +52,8 @@ def synthesise_all(mode, soundfont_path):
 # Synthesise all piano files
 # synthesise_all("piano", "SoundFonts/steinway.sf2")
 
+synth_sf = "SoundFonts" + sep + "JR" + sep + "JR_elepiano.sf2"
 # Synthesise all synth files
-synthesise_all("synth", "SoundFonts/strings lyrical.sf2")
+synthesise_all("synth", synth_sf)
 
-# synthesise_midi_to_audio("data/MIDI/chp_op18.mid", "data/synth/chp_op18.wav", "SoundFonts/strings lyrical.sf2")
+# synthesise_midi_to_audio("data" + sep + "MIDI" + sep + "chpn_op7_1.mid", "data" + sep + "synth" + sep + "chpn_op7_1.wav", synth_sf)
