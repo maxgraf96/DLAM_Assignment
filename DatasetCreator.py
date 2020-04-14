@@ -5,8 +5,7 @@ import librosa
 import numpy as np
 
 from Dataset import map_to_zero_one
-from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_height, width_seconds, spec_width, limit_s, \
-    n_mels
+from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_width, limit_s
 
 
 def create_spectrogram(path):
@@ -23,7 +22,7 @@ def create_spectrogram(path):
 
     spec = np.abs(spec)
     # Convert power to dB
-    spec = librosa.amplitude_to_db(spec, ref=np.max, top_db=240)
+    spec = librosa.amplitude_to_db(spec, ref=np.max, top_db=120)
     min_db = np.min(spec)
     max_db = np.max(spec)
     spec = map_to_zero_one(spec, min_db, max_db)

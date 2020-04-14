@@ -3,10 +3,10 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from Dataset import map_to_zero_one, map_to_range
+from Dataset import map_to_range
 from DatasetCreator import create_spectrogram
-from Hyperparameters import spec_height, input_channels, sample_rate, n_fft, hop_size, spec_width, log_interval, n_mels
-from SpecVAE import plot_final, plot_final_mel
+from Hyperparameters import spec_height, input_channels, n_fft, hop_size, spec_width, log_interval, log_epochs
+from SpecVAE import plot_final
 
 
 class Model:
@@ -79,7 +79,7 @@ class Model:
             print("Loss is the same since last three epochs. Early stopping")
             return True
 
-        if epoch % 20 == 0:
+        if epoch % log_epochs == 0:
             # Plot snapshot of current representation
             self.generate("data/piano/chpn_op7_1.wav", with_return=False)
 
@@ -88,9 +88,14 @@ class Model:
         test_loss = 0
         with torch.no_grad():
             for i, data in enumerate(test_loader):
-                data = data.to(self.device)
+                # Convert tensors to cuda
+                data['sound'] = data['sound'].to(self.device)
+                data['sound_synth'] = data['sound_synth'].to(self.device)
+                piano = data['sound']
+                # Get matching synth files
+                synth = data['sound_synth']
                 recon_batch, mu, logvar = self.model(data)
-                test_loss += self.loss_function(recon_batch.view(self.batch_size, input_channels, spec_height, spec_height), data, mu, logvar).item()
+                test_loss += self.loss_function(recon_batch.view(self.batch_size, input_channels, spec_height, spec_width), synth, mu, logvar).item()
 
         test_loss /= len(test_loader.dataset)
         print('====> Test set loss: {:.4f}'.format(test_loss))

@@ -1,8 +1,8 @@
-import numpy as np
 import librosa.display
+import numpy as np
 import torch
 from torch import nn
-from torch.nn import functional as F
+
 from Hyperparameters import batch_size_cnn, spec_height, input_channels, hop_size, sample_rate, spec_width
 
 # from Freesound import Plot
@@ -50,13 +50,13 @@ class SpecVAECNN(SpecVAE):
         SpecVAE.__init__(self, epochs, dataset_length, is_plot)
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(input_channels, 64, kernel_size=(1, 4), stride=1, padding=padding),
+            nn.Conv2d(input_channels, 64, kernel_size=(2, 4), stride=1, padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
             nn.Conv2d(64, 128, kernel_size=(1, 4), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
-            nn.Conv2d(128, 256, kernel_size=(1, 2), stride=(1, 1), padding=padding),
+            nn.Conv2d(128, 256, kernel_size=(1, 1), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(256),
             # nn.Tanh(),
             # nn.Conv2d(256, 512, kernel_size=4, stride=1, padding=padding),
@@ -69,13 +69,13 @@ class SpecVAECNN(SpecVAE):
             # nn.ConvTranspose2d(512, 256, kernel_size=4, stride=1, padding=padding),
             # nn.BatchNorm2d(256),
             # nn.Tanh(),
-            nn.ConvTranspose2d(256, 128, kernel_size=(1, 2), stride=(1, 1), padding=padding),
+            nn.ConvTranspose2d(256, 128, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
             nn.ConvTranspose2d(128, 64, kernel_size=(1, 4), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
-            nn.ConvTranspose2d(64, input_channels, kernel_size=(1, 5), stride=1, padding=padding),
+            nn.ConvTranspose2d(64, input_channels, kernel_size=(2, 5), stride=1, padding=padding),
             nn.Sigmoid()
         )
 
@@ -134,7 +134,7 @@ def plot_final(data):
     import matplotlib.pyplot as plt
     plt.figure(figsize=(14, 8))
     plt.subplot(1, 1, 1)
-    data_db = librosa.amplitude_to_db(data, ref=np.max, top_db=240)
+    data_db = librosa.amplitude_to_db(data, ref=np.max, top_db=120)
     librosa.display.specshow(data_db, y_axis='log', x_axis='time', sr=sample_rate, hop_length=hop_size)
     plt.colorbar(format='%+2.0f dB')
     plt.show()

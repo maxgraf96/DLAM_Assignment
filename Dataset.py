@@ -1,14 +1,10 @@
-import glob
 import os
 from pathlib import Path
 
-import librosa
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 from scipy import stats
-
-from Hyperparameters import sep, gen_dir, cuda, device
+from torch.utils.data import Dataset
 
 
 def map_to_zero_one(spec, min_from, max_from):
@@ -63,9 +59,14 @@ class AssignmentDataset(Dataset):
 
         spec = self.get_spectrogram(path)
         spec_synth = self.get_spectrogram(path_synth)
+
+        # flip axes
+        spec = np.flip(np.swapaxes(spec, 0, 1).copy(), axis=0).copy()
+        spec_synth = np.flip(np.swapaxes(spec_synth, 0, 1).copy(), axis=0).copy()
+
         # If only the magnitude is used another channel dimension is needed for pytorch
-        spec = np.expand_dims(spec, axis=0)
-        spec_synth = np.expand_dims(spec_synth, axis=0)
+        # spec = np.expand_dims(spec, axis=0)
+        # spec_synth = np.expand_dims(spec_synth, axis=0)
         sample = {'sound': spec, 'sound_synth': spec_synth
             # , 'filename': path
                   }
