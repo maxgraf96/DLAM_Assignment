@@ -2,6 +2,7 @@ import librosa.display
 import numpy as np
 import torch
 from torch import nn
+import matplotlib.pyplot as plt
 
 from Hyperparameters import batch_size_cnn, spec_height, input_channels, hop_size, sample_rate, spec_width
 
@@ -14,7 +15,7 @@ stride = 0
 
 # Parameters for ANN
 ZDIMS_ANN = 100
-unflatten_dims = None
+unflatten_dims : torch.Tensor = None
 
 class SpecVAE(nn.Module):
     """
@@ -41,7 +42,7 @@ class Flatten(nn.Module):
         return input.view(-1)
 
 class UnFlatten(nn.Module):
-    def forward(self, input):
+    def forward(self, input: torch.Tensor):
         unflattened = input.view(unflatten_dims)
         return unflattened
 
@@ -53,20 +54,20 @@ class SpecVAECNN(SpecVAE):
             nn.Conv2d(input_channels, 64, kernel_size=(spec_height, 1), padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
-            nn.Conv2d(64, 128, kernel_size=(1, 3), stride=(1, 2), padding=padding),
+            nn.Conv2d(64, 128, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
-            nn.Conv2d(128, 256, kernel_size=(1, 3), stride=(1, 2), padding=padding),
+            nn.Conv2d(128, 256, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(256),
             # Flatten()
         )
 
         self.decoder = nn.Sequential(
             # UnFlatten(),
-            nn.ConvTranspose2d(256, 128, kernel_size=(1, 3), stride=(1, 2), padding=padding),
+            nn.ConvTranspose2d(256, 128, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
-            nn.ConvTranspose2d(128, 64, kernel_size=(1, 3), stride=(1, 2), padding=padding),
+            nn.ConvTranspose2d(128, 64, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
             nn.ConvTranspose2d(64, input_channels, kernel_size=(spec_height, 4), padding=padding),
@@ -99,11 +100,11 @@ class SpecVAECNN(SpecVAE):
         return mu + eps * std
 
     def forward(self, x):
-        piano = x['sound']
-        synth = x['sound_synth']
-        piano = self.encoder(piano)
+        # piano = x['sound']
+        # synth = x['sound_synth']
+        x = self.encoder(x)
         # synth = self.encoder(synth)
-        z, mu, logvar = self.bottleneck(piano)
+        z, mu, logvar = self.bottleneck(x)
         # z_s, mu_s, logvar_s = self.bottleneck(synth)
         # z = self.fc3(z)
         z = self.decoder(z)
@@ -125,68 +126,14 @@ class SpecVAECNN(SpecVAE):
         return self.bottleneck(self.encoder(x))[0]
 
 def plot_final(data):
-    import matplotlib.pyplot as plt
     plt.figure(figsize=(14, 8))
-    plt.subplot(1, 1, 1)
     data_db = librosa.amplitude_to_db(data, ref=np.max, top_db=120)
     librosa.display.specshow(data_db, y_axis='log', x_axis='time', sr=sample_rate, hop_length=hop_size)
     plt.colorbar(format='%+2.0f dB')
     plt.show()
 
 def plot_final_mel(data):
-    import matplotlib.pyplot as plt
     plt.figure(figsize=(14, 8))
-    plt.subplot(1, 1, 1)
     librosa.display.specshow(data, y_axis='mel', x_axis='time', sr=sample_rate, hop_length=hop_size)
     plt.colorbar(format='%+2.0f dB')
     plt.show()
-
-# class SpecVAEANN(SpecVAE):
-#     def __init__(self, spec_dim, epochs, is_plot=False):
-#         SpecVAE.__init__(self, epochs, is_plot)
-#
-#         # self.spec_width = spec_width
-#         # self.spec_height = spec_height
-#         self.spec_dim = spec_dim
-#
-#         self.fc1 = nn.Linear(self.spec_dim, 1024)
-#         self.fc1_1 = nn.Linear(1024, 768)
-#         self.fc1_2 = nn.Linear(768, 400)
-#         self.fc1_3 = nn.Linear(400, 200)
-#         self.fc21 = nn.Linear(200, ZDIMS_ANN)
-#         self.fc22 = nn.Linear(200, ZDIMS_ANN)
-#
-#         self.fc3 = nn.Linear(ZDIMS_ANN, 200)
-#         self.fc3_1 = nn.Linear(200, 400)
-#         self.fc3_2 = nn.Linear(400, 768)
-#         self.fc3_3 = nn.Linear(768, 1024)
-#
-#         self.fc4 = nn.Linear(1024, self.spec_dim)
-#
-#     def encode(self, x):
-#         # Flatten input
-#         x = x.flatten()
-#         h1 = F.relu(self.fc1_3(F.relu(self.fc1_2(F.relu(self.fc1_1(F.relu(self.fc1(x))))))))
-#         return self.fc21(h1), self.fc22(h1)
-#
-#     def reparameterize(self, mu, logvar):
-#         std = torch.exp(0.5*logvar)
-#         eps = torch.randn_like(std)
-#         return mu + eps*std
-#
-#     def decode(self, z):
-#         h3 = F.relu(self.fc3_3(F.relu(self.fc3_2(F.relu(self.fc3_1(F.relu(self.fc3(z))))))))
-#         return torch.sigmoid(self.fc4(h3))
-#
-#     def forward(self, x):
-#         mu, logvar = self.encode(x)
-#
-#         # Plot latent representation at the beginning and end
-#         # if self.is_plot and (self.current_epoch == 1 or self.current_epoch == self.total_epochs):
-#         #     Plot.plot_latent_representations_ann(x, mu, is_plot_original=False)
-#
-#         z = self.reparameterize(mu, logvar)
-#         decoded = self.decode(z)
-#         # "Unflatten" => turn vector back into spectrogram
-#         # decoded = decoded.view(self.spec_height, self.spec_width)
-#         return decoded, mu, logvar

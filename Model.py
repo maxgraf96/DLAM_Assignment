@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
+import DatasetCreator
 from Dataset import map_to_range
 from DatasetCreator import create_spectrogram
 from Hyperparameters import spec_height, input_channels, n_fft, hop_size, spec_width, log_interval, log_epochs, \
@@ -11,10 +12,9 @@ from SpecVAE import plot_final, plot_final_mel
 
 
 class Model:
-    def __init__(self, model, device, batch_size, log_interval):
+    def __init__(self, model, device, log_interval):
         self.model = model
         self.device = device
-        self.batch_size = batch_size
         self.log_interval = log_interval
         self.prevloss = -1
         self.sameloss = False
@@ -30,7 +30,7 @@ class Model:
         # Normalise KLD by batch size and size of spectrogram
         # KLD /= batch_size_cnn
 
-        MAE = F.l1_loss(recon_x, x)
+        MAE = F.mse_loss(recon_x, x)
 
         # return BCE + KLD
         return MAE
@@ -48,10 +48,11 @@ class Model:
             # Get matching synth files
             synth = data['sound_synth']
             optimizer.zero_grad()
-            recon_batch, mu, logvar = self.model(data)
+            recon_batch, mu, logvar = self.model(piano)
+            a = 2
             # Main point here: Loss function takes the synth sound as target, so the network learns
             # to map the piano sound to the synth sound!
-            loss = self.loss_function(recon_batch.view(self.batch_size, input_channels, spec_height, spec_width), synth, mu, logvar)
+            loss = self.loss_function(recon_batch, synth, mu, logvar)
             loss.backward()
             train_loss += loss.item()
             optimizer.step()
@@ -98,7 +99,7 @@ class Model:
                 # Get matching synth files
                 synth = data['sound_synth']
                 recon_batch, mu, logvar = self.model(data)
-                test_loss += self.loss_function(recon_batch.view(self.batch_size, input_channels, spec_height, spec_width), synth, mu, logvar).item()
+                test_loss += self.loss_function(recon_batch.view(batch_size_cnn, input_channels, spec_height, spec_width), synth, mu, logvar).item()
 
         test_loss /= len(test_loader.dataset)
         print('====> Test set loss: {:.4f}'.format(test_loss))
@@ -107,12 +108,6 @@ class Model:
         with torch.no_grad():
             sample = torch.from_numpy(spec).to(self.device)
             sample, mu, logvar = self.model.forward_sample(sample)
-            return sample
-
-    def generate_latent_sample(self, spec):
-        with torch.no_grad():
-            sample = torch.from_numpy(spec).to(self.device)
-            sample, mu, logvar = self.model.bottleneck(self.model.encoder(sample))
             return sample
 
     def generate(self, path, with_return=True):
@@ -124,43 +119,46 @@ class Model:
             inv_db = map_to_range(spec, 0, 1, -120, 0)
             # inv_pow = librosa.db_to_amplitude(inv_db)
             # plot_final(inv_mag)
-            plot_final_mel(spec)
+            plot_final_mel(inv_db)
+
+            # Get synth version
+            print("Original synth")
+            synth_path_s = str(path).split(sep)
+            # Replace 'piano' with 'synth'
+            synth_path_s[-2] = 'synth'
+            synth_path = sep.join(synth_path_s)
+            synth_inv_db = map_to_range(create_spectrogram(synth_path), 0, 1, -120, 0)
+            plot_final_mel(synth_inv_db)
 
         result = np.zeros(spec.shape)
-        width = spec_width * self.batch_size
-        for frame in range(0, spec.shape[1], width):
-            if frame + width > spec.shape[1]:
-                break
+        # Fill batches
+        current = np.zeros((batch_size_cnn, input_channels, spec_height, spec_width), dtype=np.float32)
 
-            # Fill batches
-            current = np.zeros((self.batch_size, input_channels, spec_height, spec_width), dtype=np.float32)
-            for batch in range(self.batch_size):
-                start = frame + batch * spec_width
-                end = start + spec_width
-                current_batch = spec[:, start : end]
-                current[batch, 0] = current_batch
+        for batch in range(batch_size_cnn):
+            start = batch * spec_width
+            end = start + spec_width
+            current_batch = spec[:, start : end]
+            current[batch, 0] = current_batch
 
-            # Calculate for whole batch
-            result_frames = self.generate_sample(current)
-            result_frames = result_frames.cpu().numpy()
+        # Calculate for whole batch
+        result_frames = self.generate_sample(current)
+        result_frames = result_frames.cpu().numpy()
 
-            for batch in range(self.batch_size):
-                start = frame + batch * spec_width
-                end = start + spec_width
-                result[:, start : end] = result_frames[batch][0]
+        for batch in range(batch_size_cnn):
+            start = batch * spec_width
+            end = start + spec_width
+            result[:, start : end] = result_frames[batch][0]
 
         # Mel
-        inv_db = map_to_range(result, 0, 1, -120, 0)
-        inv_pow = librosa.db_to_power(inv_db)
+        inv_db_final = map_to_range(result, 0, 1, -120, 0)
+        inv_pow = librosa.db_to_power(inv_db_final)
 
         # SHOW
         # plot_final(inv_mag)
-        plot_final_mel(inv_db)
+        plot_final_mel(inv_db_final)
 
         if with_return:
             # sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
-
             # When using mel specrogram
             sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, sample_rate, n_fft, hop_size, n_fft)
-
             return sig_result
