@@ -5,7 +5,7 @@ import librosa
 import numpy as np
 
 from Dataset import map_to_zero_one
-from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_width, limit_s
+from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_width, limit_s, n_mels
 
 
 def create_spectrogram(path):
@@ -17,12 +17,12 @@ def create_spectrogram(path):
     sig = librosa.util.fix_length(sig, limit_s * sample_rate)
 
     # Calculate STFT
-    spec = librosa.stft(sig, n_fft, hop_length=hop_size, window='hann')
-    # spec = librosa.feature.melspectrogram(sig, sr=sample_rate, n_fft=n_fft, hop_length=hop_size, n_mels=n_mels)
-
-    spec = np.abs(spec)
+    # spec = librosa.stft(sig, n_fft, hop_length=hop_size, window='hann')
+    spec = librosa.feature.melspectrogram(sig, sr=sample_rate, n_fft=n_fft, hop_length=hop_size, n_mels=n_mels)
+    spec = librosa.power_to_db(spec, ref=np.max, top_db=120)
+    # spec = np.abs(spec)
     # Convert power to dB
-    spec = librosa.amplitude_to_db(spec, ref=np.max, top_db=120)
+    # spec = librosa.amplitude_to_db(spec, ref=np.max, top_db=120)
     min_db = np.min(spec)
     max_db = np.max(spec)
     spec = map_to_zero_one(spec, min_db, max_db)

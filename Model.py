@@ -5,8 +5,9 @@ from torch.nn import functional as F
 
 from Dataset import map_to_range
 from DatasetCreator import create_spectrogram
-from Hyperparameters import spec_height, input_channels, n_fft, hop_size, spec_width, log_interval, log_epochs
-from SpecVAE import plot_final
+from Hyperparameters import spec_height, input_channels, n_fft, hop_size, spec_width, log_interval, log_epochs, \
+    sample_rate, batch_size_cnn, sep
+from SpecVAE import plot_final, plot_final_mel
 
 
 class Model:
@@ -21,16 +22,18 @@ class Model:
 
     # Reconstruction + KL divergence losses summed over all elements and batch
     def loss_function(self, recon_x, x, mu, logvar):
-        BCE = F.binary_cross_entropy(recon_x, x, reduction='mean')
+        # BCE = F.binary_cross_entropy(recon_x, x, reduction='mean')
 
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
-        KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+        # KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
         # Normalise KLD by batch size and size of spectrogram
-        KLD /= self.batch_size
-        KLD *= 100
+        # KLD /= batch_size_cnn
 
-        return BCE + KLD
+        MAE = F.l1_loss(recon_x, x)
+
+        # return BCE + KLD
+        return MAE
 
     def train(self, epoch, train_loader, optimizer):
         # Set current epoch in model (used for plotting)
@@ -81,7 +84,7 @@ class Model:
 
         if epoch % log_epochs == 0:
             # Plot snapshot of current representation
-            self.generate("data/piano/chpn_op7_1.wav", with_return=False)
+            self.generate("data" + sep + "piano" + sep + "chpn_op7_1.wav", with_return=False)
 
     def test(self, test_loader, epoch):
         self.model.eval()
@@ -118,10 +121,10 @@ class Model:
         spec = create_spectrogram(path)
         if with_return:
             print("Original")
-            inv_db = map_to_range(spec, 0, 1, -240, 0)
-            inv_mag = librosa.db_to_amplitude(inv_db)
-            plot_final(inv_mag)
-            # plot_final_mel(spec)
+            inv_db = map_to_range(spec, 0, 1, -120, 0)
+            # inv_pow = librosa.db_to_amplitude(inv_db)
+            # plot_final(inv_mag)
+            plot_final_mel(spec)
 
         result = np.zeros(spec.shape)
         width = spec_width * self.batch_size
@@ -146,22 +149,18 @@ class Model:
                 end = start + spec_width
                 result[:, start : end] = result_frames[batch][0]
 
-        # Invert result
-        # STFT
-        inv_db = map_to_range(result, 0, 1, -240, 0)
-        inv_mag = librosa.db_to_amplitude(inv_db)
-
         # Mel
-        # inv_mag = result
+        inv_db = map_to_range(result, 0, 1, -120, 0)
+        inv_pow = librosa.db_to_power(inv_db)
 
         # SHOW
-        plot_final(inv_mag)
-        # plot_final_mel(inv_mag)
+        # plot_final(inv_mag)
+        plot_final_mel(inv_db)
 
         if with_return:
-            sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
+            # sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
 
             # When using mel specrogram
-            # sig_result = librosa.feature.inverse.mel_to_audio(inv_mag, sample_rate, n_fft, hop_size, n_fft)
+            sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, sample_rate, n_fft, hop_size, n_fft)
 
             return sig_result

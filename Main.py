@@ -24,7 +24,7 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() els
 
 # Initialise dataset (create spectrograms if not exist)
 DatasetCreator.initialise_dataset()
-root_dir = "data" + sep + "generated" #+ sep + "chpn_op7_1"
+root_dir = "data" + sep + "generated" + sep + "chpn_op7_1"
 
 global main
 global dataset
@@ -53,16 +53,16 @@ if __name__ == '__main__':
         optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
         # Split into training and test sets
-        train_size = int(len(dataset) * 0.8)
-        # train_dataset = dataset
-        test_size = len(dataset) - train_size
-        train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+        # train_size = int(len(dataset) * 0.8)
+        train_dataset = dataset
+        # test_size = len(dataset) - train_size
+        # train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
         # train_dataset = torch.utils.data.Subset(dataset, np.arange(train_size))
         # test_dataset = torch.utils.data.Subset(dataset, np.arange(train_size, dataset.length))
 
         # Create dataloaders
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=4, drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=8, drop_last=True)
+        # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8, drop_last=True)
 
         main = Model(model, device, batch_size, log_interval)
 
@@ -71,17 +71,14 @@ if __name__ == '__main__':
             if is_early_stop:
                 print("Early stopped after " + str(epochs) + " epochs.")
                 break
-            main.test(test_loader, epoch)
+            # main.test(test_loader, epoch)
 
         # Save model so we don't have to train every time
         # torch.save(model.state_dict(), model_path)
 
     # Generate something
-    gen = main.generate("data/piano/chpn_op7_1.wav")
+    gen = main.generate("data" + sep + "piano" + sep + "chpn_op7_1.wav")
     gen = librosa.util.normalize(gen)
 
     # Display (only works on IPython notebooks)
     librosa.output.write_wav("output.wav", gen, sample_rate)
-
-    # Empty cuda memory cache
-    torch.cuda.empty_cache()

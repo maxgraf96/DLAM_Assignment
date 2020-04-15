@@ -7,8 +7,8 @@ import numpy as np
 import DatasetCreator
 from Dataset import map_to_range
 from Hyperparameters import batch_size_gru, input_channels, spec_height, spec_width, device, hop_size, n_fft, \
-    sample_rate
-from SpecVAE import plot_final
+    sample_rate, sep
+from SpecVAE import plot_final, plot_final_mel
 
 
 class SpecGRU(nn.Module):
@@ -17,39 +17,32 @@ class SpecGRU(nn.Module):
         self.dataset_length = dataset_length
 
         self.n_features = spec_height
-        self.seq_len = spec_width
         self.num_layers = 2
-        self.hidden_dim = 256
-
+        self.hidden_dim = 80
         # Encoder
         self.encoder = nn.GRU(self.n_features, self.hidden_dim, self.num_layers, batch_first=True)
 
-        test_encode = self.encoder(torch.randn(batch_size_gru, self.seq_len, self.n_features))
+        test_encode = self.encoder(torch.randn(batch_size_gru, spec_width, self.n_features))
         output = test_encode[0]
         H_DIMS = output.flatten().shape[0]
 
         self.bottleneck = nn.Sequential(
-            nn.Linear(H_DIMS, 128),
-            nn.Linear(128, H_DIMS)
+            nn.Linear(H_DIMS, 80),
+            nn.Linear(80, batch_size_gru * spec_width * self.n_features)
         )
+        test_bottleneck = self.bottleneck(output.flatten())
 
         # Decoder
         self.decoder = nn.GRU(self.hidden_dim, self.hidden_dim, self.num_layers, batch_first=True)
         self.fcout = nn.Linear(self.hidden_dim, self.n_features)
 
     def forward(self, x, h):
-        # Test print
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # test = x.cpu().detach().numpy()[0]
-        # librosa.display.specshow(test)
-        # plt.show()
         out, h = self.encoder(x, h)
         # bottleneck = self.bottleneck(out.flatten())
-        # bottleneck = bottleneck.reshape(batch_size_gru, spec_width, self.hidden_dim)
+        # bottleneck = bottleneck.reshape(batch_size_gru, spec_width, self.n_features)
         out, h = self.decoder(out, h)
-        result = self.fcout(out)
-
+        # result = self.fcout(out)
+        result = out
         # import matplotlib.pyplot as plt
         # plt.figure()
         # test = result.cpu().detach().numpy()[0]
@@ -74,12 +67,26 @@ def generate(model, path, with_return=False):
     spec = DatasetCreator.create_spectrogram(path)
 
     if with_return:
-        print("Original")
+        print("Original piano")
         orig_inv_db = map_to_range(spec, 0, 1, -120, 0)
-        orig_inv_mag = librosa.db_to_amplitude(orig_inv_db)
-        plot_final(orig_inv_mag)
+        # orig_inv_mag = librosa.db_to_amplitude(orig_inv_db)
+        # orig_inv_pow = librosa.db_to_power(orig_inv_db)
+        plot_final_mel(orig_inv_db)
+
+        # Get synth version
+        print("Original synth")
+        synth_path_s = str(path).split(sep)
+        # Replace 'piano' with 'synth'
+        synth_path_s[-2] = 'synth'
+        synth_path = sep.join(synth_path_s)
+        synth_inv_db = map_to_range(DatasetCreator.create_spectrogram(synth_path), 0, 1, -120, 0)
+        synth_inv_pow = librosa.db_to_power(synth_inv_db)
+        # synth_inv_mag = librosa.db_to_amplitude(synth_inv_db)
+        plot_final_mel(synth_inv_db)
+
         # Output orig griffin lim result
-        orig_gl_result = librosa.feature.inverse.griffinlim(orig_inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
+        # orig_gl_result = librosa.feature.inverse.griffinlim(orig_inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
+        orig_gl_result = librosa.feature.inverse.mel_to_audio(synth_inv_pow, n_iter=32, hop_length=hop_size, win_length=n_fft)
         gen = librosa.util.normalize(orig_gl_result)
         librosa.output.write_wav("output_gl.wav", gen, sample_rate)
 
@@ -125,17 +132,18 @@ def generate(model, path, with_return=False):
     # Invert result
     # STFT
     inv_db = map_to_range(result, 0, 1, -120, 0)
-    inv_mag = librosa.db_to_amplitude(inv_db)
+    inv_pow = librosa.db_to_power(inv_db)
+    # inv_mag = librosa.db_to_amplitude(inv_db)
 
     # Mel
     # inv_mag = result
 
     # SHOW
-    plot_final(inv_mag)
-    # plot_final_mel(inv_mag)
+    # plot_final(inv_mag)
+    plot_final_mel(inv_db)
 
     if with_return:
-
-        sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
+        # sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
+        sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, n_iter=32, hop_length=hop_size, win_length=n_fft)
         return sig_result
 

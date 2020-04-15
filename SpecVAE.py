@@ -9,7 +9,7 @@ from Hyperparameters import batch_size_cnn, spec_height, input_channels, hop_siz
 
 # Parameters for CNN
 # kernel_size = 0
-padding = 1
+padding = 0
 stride = 0
 
 # Parameters for ANN
@@ -50,32 +50,26 @@ class SpecVAECNN(SpecVAE):
         SpecVAE.__init__(self, epochs, dataset_length, is_plot)
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(input_channels, 64, kernel_size=(2, 4), stride=1, padding=padding),
+            nn.Conv2d(input_channels, 64, kernel_size=(spec_height, 1), padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
-            nn.Conv2d(64, 128, kernel_size=(1, 4), stride=(1, 2), padding=padding),
+            nn.Conv2d(64, 128, kernel_size=(1, 3), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
-            nn.Conv2d(128, 256, kernel_size=(1, 1), stride=(1, 2), padding=padding),
+            nn.Conv2d(128, 256, kernel_size=(1, 3), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(256),
-            # nn.Tanh(),
-            # nn.Conv2d(256, 512, kernel_size=4, stride=1, padding=padding),
-            # nn.BatchNorm2d(512),
             # Flatten()
         )
 
         self.decoder = nn.Sequential(
             # UnFlatten(),
-            # nn.ConvTranspose2d(512, 256, kernel_size=4, stride=1, padding=padding),
-            # nn.BatchNorm2d(256),
-            # nn.Tanh(),
-            nn.ConvTranspose2d(256, 128, kernel_size=(1, 2), stride=(1, 2), padding=padding),
+            nn.ConvTranspose2d(256, 128, kernel_size=(1, 3), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
-            nn.ConvTranspose2d(128, 64, kernel_size=(1, 4), stride=(1, 2), padding=padding),
+            nn.ConvTranspose2d(128, 64, kernel_size=(1, 3), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(64),
             nn.Tanh(),
-            nn.ConvTranspose2d(64, input_channels, kernel_size=(2, 5), stride=1, padding=padding),
+            nn.ConvTranspose2d(64, input_channels, kernel_size=(spec_height, 4), padding=padding),
             nn.Sigmoid()
         )
 
@@ -83,7 +77,7 @@ class SpecVAECNN(SpecVAE):
         test_decode = self.decoder(test_encode)
         decoder_shape = test_decode.shape
         H_DIMS_CNN = test_encode.shape[0]
-        ZDIMS_CNN = batch_size_cnn
+        ZDIMS_CNN = 128
 
         self.spec_width = spec_width
         self.spec_height = spec_height
@@ -94,9 +88,8 @@ class SpecVAECNN(SpecVAE):
 
     def bottleneck(self, h):
         # mu, logvar = self.fc1(h), self.fc2(h)
-        # z = self.reparameterize(mu, logvar)
-        mu = h
-        logvar = h
+        mu = h.clone()
+        logvar = h.clone()
         z = self.reparameterize(mu, logvar)
         return z, mu, logvar
 
@@ -109,12 +102,12 @@ class SpecVAECNN(SpecVAE):
         piano = x['sound']
         synth = x['sound_synth']
         piano = self.encoder(piano)
-        synth = self.encoder(synth)
+        # synth = self.encoder(synth)
         z, mu, logvar = self.bottleneck(piano)
-        z_s, mu_s, logvar_s = self.bottleneck(synth)
+        # z_s, mu_s, logvar_s = self.bottleneck(synth)
         # z = self.fc3(z)
         z = self.decoder(z)
-        return z, mu_s, logvar_s
+        return z, mu, logvar
 
     def forward_sample(self, sample):
         """
@@ -124,6 +117,7 @@ class SpecVAECNN(SpecVAE):
         """
         sample = self.encoder(sample)
         z, mu, logvar = self.bottleneck(sample)
+        # z = self.fc3(z)
         z = self.decoder(z)
         return z, mu, logvar
 
@@ -143,8 +137,7 @@ def plot_final_mel(data):
     import matplotlib.pyplot as plt
     plt.figure(figsize=(14, 8))
     plt.subplot(1, 1, 1)
-    data_db = librosa.power_to_db(data, ref=np.max)
-    librosa.display.specshow(data_db, y_axis='mel', x_axis='time', sr=sample_rate, hop_length=hop_size)
+    librosa.display.specshow(data, y_axis='mel', x_axis='time', sr=sample_rate, hop_length=hop_size)
     plt.colorbar(format='%+2.0f dB')
     plt.show()
 
