@@ -5,7 +5,7 @@ import librosa
 import numpy as np
 
 from Dataset import map_to_zero_one
-from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_width, limit_s, n_mels
+from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_width, limit_s, n_mels, top_db
 
 
 def create_spectrogram(path):
@@ -16,18 +16,14 @@ def create_spectrogram(path):
     # TODO change this later
     sig = librosa.util.fix_length(sig, limit_s * sample_rate)
 
-    # Calculate STFT
-    # spec = librosa.stft(sig, n_fft, hop_length=hop_size, window='hann')
-    spec = librosa.feature.melspectrogram(sig, sr=sample_rate, n_fft=n_fft, hop_length=hop_size, n_mels=n_mels)
-    spec = librosa.power_to_db(spec, ref=np.max, top_db=120)
-    # spec = np.abs(spec)
-    # Convert power to dB
-    # spec = librosa.amplitude_to_db(spec, ref=np.max, top_db=120)
-    min_db = np.min(spec)
-    max_db = np.max(spec)
-    spec = map_to_zero_one(spec, min_db, max_db)
+    # Calculate Mel spectrogram
+    mel = librosa.feature.melspectrogram(sig, sr=sample_rate, n_fft=n_fft, hop_length=hop_size, n_mels=n_mels)
+    mel = librosa.power_to_db(mel, ref=np.max, top_db=top_db)
+    min_db = np.min(mel)
+    max_db = np.max(mel)
+    mel = map_to_zero_one(mel, min_db, max_db)
 
-    return spec
+    return mel
 
 def create_datapoints(wav_path, mode, number_of_wavs, counter):
     wav_str = str(wav_path)
@@ -45,16 +41,16 @@ def create_datapoints(wav_path, mode, number_of_wavs, counter):
     # Create folder
     Path(folder).mkdir(parents=True, exist_ok=True)
 
-    spec = create_spectrogram(wav_str)
+    mel = create_spectrogram(wav_str)
 
     # Create data points for the CNN
     width = spec_width
     frame_counter = 0
-    for frame in range(0, spec.shape[1], width):
-        if frame + width > spec.shape[1]:
+    for frame in range(0, mel.shape[1], width):
+        if frame + width > mel.shape[1]:
             break
-        current = spec[:, frame: frame + width]
-        np.save(folder + sep + filename + "_" + str(frame_counter) + "_" + mode, current)
+        current_mel = mel[:, frame : frame + width]
+        np.save(folder + sep + filename + "_" + str(frame_counter) + "_" + mode + "_mel", current_mel)
         frame_counter += 1
 
 def initialise_dataset():

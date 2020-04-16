@@ -34,16 +34,12 @@ class AssignmentDataset(Dataset):
         # self.mean = np.load(root_dir + sep + "mean.npy")
         # self.std = np.load(root_dir + sep + "std.npy")
         self.transform = transform
-        piano_npys = Path(root_dir).rglob("*_piano.npy")
-        self.filenames = [str(npy) for npy in piano_npys]
-        synth_npys = Path(root_dir).rglob("*_synth.npy")
-        self.synth_filenames = [str(npy) for npy in synth_npys]
-        self.length = len(self.filenames)
+        mel_piano_npys = Path(root_dir).rglob("*_piano_mel.npy")
+        mel_synth_npys = Path(root_dir).rglob("*_synth_mel.npy")
+        self.piano_mel_filenames = [str(npy) for npy in mel_piano_npys]
+        self.synth_mel_filenames = [str(npy) for npy in mel_synth_npys]
+        self.length = len(self.piano_mel_filenames)
 
-        # Load one spectrogram to get width and height
-        mapped = self.get_spectrogram(self.filenames[0])
-        self.spec_height = mapped.shape[0]
-        self.spec_width = mapped.shape[1]
 
     def __len__(self):
         return self.length
@@ -54,22 +50,16 @@ class AssignmentDataset(Dataset):
 
         # Get spectrogram
         # Convert idx to filename
-        path = self.filenames[idx]
-        path_synth = self.synth_filenames[idx]
+        mel_piano_path = self.piano_mel_filenames[idx]
+        mel_synth_path = self.synth_mel_filenames[idx]
 
-        spec = self.get_spectrogram(path)
-        spec_synth = self.get_spectrogram(path_synth)
-
-        # flip axes - for GRU
-        # spec = np.flip(np.swapaxes(spec, 0, 1).copy(), axis=0).copy()
-        # spec_synth = np.flip(np.swapaxes(spec_synth, 0, 1).copy(), axis=0).copy()
+        mel_piano = self.get_spectrogram(mel_piano_path)
+        mel_synth = self.get_spectrogram(mel_synth_path)
 
         # If only the magnitude is used another channel dimension is needed for pytorch
-        spec = np.expand_dims(spec, axis=0)
-        spec_synth = np.expand_dims(spec_synth, axis=0)
-        sample = {'sound': spec, 'sound_synth': spec_synth
-            # , 'filename': path
-                  }
+        mel_piano = np.expand_dims(mel_piano, axis=0)
+        mel_synth = np.expand_dims(mel_synth, axis=0)
+        sample = {'piano_mel': mel_piano, 'synth_mel': mel_synth}
 
         if self.transform:
             sample = self.transform(sample)
@@ -81,32 +71,14 @@ class AssignmentDataset(Dataset):
             print("Error: Spectrogram for file '" + path + "' does not exist! Aborting...")
             return None
 
-        stft = np.load(path)
-        return stft
-
-    def get_spec_dims(self):
-        return self.spec_width, self.spec_height
-
-def standardise(spec):
-    l2 = 10 ** -7
-    # Get 0 and max value after transform
-    min_idx = np.argmin(spec)
-    max_idx = np.argmax(spec)
-    spec = stats.boxcox(spec, lmbda=l2)
-    zero_transformed = spec[min_idx]
-    max_transformed = spec[max_idx]
-    spec = map_to_zero_one(spec, zero_transformed, max_transformed)
-
-    return spec
-
+        spec = np.load(path)
+        return spec
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
     def __call__(self, sample):
-        spec = sample['sound']
-        spec_synth = sample['sound_synth']
-        sound = torch.from_numpy(spec).float()
-        sound_synth = torch.from_numpy(spec_synth).float()
-        return {'sound': sound, 'sound_synth': sound_synth
-            # , 'filename': sample['filename']
-                }
+        piano_mel = sample['piano_mel']
+        synth_mel = sample['synth_mel']
+        piano_mel = torch.from_numpy(piano_mel).float()
+        synth_mel = torch.from_numpy(synth_mel).float()
+        return {'piano_mel': piano_mel, 'synth_mel': synth_mel}

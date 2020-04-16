@@ -7,8 +7,8 @@ import DatasetCreator
 from Dataset import map_to_range
 from DatasetCreator import create_spectrogram
 from Hyperparameters import spec_height, input_channels, n_fft, hop_size, spec_width, log_interval, log_epochs, \
-    sample_rate, batch_size_cnn, sep
-from SpecVAE import plot_final, plot_final_mel
+    sample_rate, batch_size_cnn, sep, top_db
+from Util import plot_final, plot_final_mel
 
 
 class Model:
@@ -21,19 +21,12 @@ class Model:
         self.samelosscounter = 0
 
     # Reconstruction + KL divergence losses summed over all elements and batch
-    def loss_function(self, recon_x, x, mu, logvar):
-        # BCE = F.binary_cross_entropy(recon_x, x, reduction='mean')
+    def loss_function(self, recon_x, x):
 
-        # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-        # https://arxiv.org/abs/1312.6114
-        # KLD = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
-        # Normalise KLD by batch size and size of spectrogram
-        # KLD /= batch_size_cnn
-
-        MAE = F.mse_loss(recon_x, x)
+        MAE = F.l1_loss(recon_x, x)
 
         # return BCE + KLD
-        return MAE
+        return MAE # + MAE_STFT
 
     def train(self, epoch, train_loader, optimizer):
         # Set current epoch in model (used for plotting)
@@ -42,17 +35,13 @@ class Model:
         train_loss = 0
         for batch_idx, data in enumerate(train_loader):
             # Convert tensors to cuda
-            data['sound'] = data['sound'].to(self.device)
-            data['sound_synth'] = data['sound_synth'].to(self.device)
-            piano = data['sound']
-            # Get matching synth files
-            synth = data['sound_synth']
+            piano = data['piano_mel'].to(self.device)
+            synth = data['synth_mel'].to(self.device)
             optimizer.zero_grad()
-            recon_batch, mu, logvar = self.model(piano)
-            a = 2
+            mel, mu, logvar = self.model(piano)
             # Main point here: Loss function takes the synth sound as target, so the network learns
             # to map the piano sound to the synth sound!
-            loss = self.loss_function(recon_batch, synth, mu, logvar)
+            loss = self.loss_function(mel, synth)
             loss.backward()
             train_loss += loss.item()
             optimizer.step()
@@ -93,13 +82,11 @@ class Model:
         with torch.no_grad():
             for i, data in enumerate(test_loader):
                 # Convert tensors to cuda
-                data['sound'] = data['sound'].to(self.device)
-                data['sound_synth'] = data['sound_synth'].to(self.device)
-                piano = data['sound']
-                # Get matching synth files
-                synth = data['sound_synth']
-                recon_batch, mu, logvar = self.model(data)
-                test_loss += self.loss_function(recon_batch.view(batch_size_cnn, input_channels, spec_height, spec_width), synth, mu, logvar).item()
+                piano = data['piano_mel'].to(self.device)
+                synth = data['synth_mel'].to(self.device)
+                mel, mu, logvar = self.model(piano)
+                loss = self.loss_function(mel, synth)
+                test_loss += loss.item()
 
         test_loss /= len(test_loader.dataset)
         print('====> Test set loss: {:.4f}'.format(test_loss))
@@ -107,50 +94,46 @@ class Model:
     def generate_sample(self, spec):
         with torch.no_grad():
             sample = torch.from_numpy(spec).to(self.device)
-            sample, mu, logvar = self.model.forward_sample(sample)
-            return sample
+            mel, mu, logvar = self.model.forward_sample(sample)
+            return mel
 
     def generate(self, path, with_return=True):
         self.model.eval()
 
-        spec = create_spectrogram(path)
+        mel = create_spectrogram(path)
         if with_return:
             print("Original")
-            inv_db = map_to_range(spec, 0, 1, -120, 0)
+            inv_db = map_to_range(mel, 0, 1, -top_db, 0)
             # inv_pow = librosa.db_to_amplitude(inv_db)
             # plot_final(inv_mag)
             plot_final_mel(inv_db)
 
-            # Get synth version
-            print("Original synth")
-            synth_path_s = str(path).split(sep)
-            # Replace 'piano' with 'synth'
-            synth_path_s[-2] = 'synth'
-            synth_path = sep.join(synth_path_s)
-            synth_inv_db = map_to_range(create_spectrogram(synth_path), 0, 1, -120, 0)
-            plot_final_mel(synth_inv_db)
+            try:
+                # Get synth version
+                print("Original synth")
+                synth_path_s = str(path).split(sep)
+                # Replace 'piano' with 'synth'
+                synth_path_s[-2] = 'synth'
+                synth_path = sep.join(synth_path_s)
+                mel_synth = create_spectrogram(synth_path)[0]
+                synth_inv_db = map_to_range(mel_synth, 0, 1, -top_db, 0)
+                plot_final_mel(synth_inv_db)
+            except:
+                print("No synth file found for input")
 
-        result = np.zeros(spec.shape)
+        result = np.zeros(mel.shape)
         # Fill batches
         current = np.zeros((batch_size_cnn, input_channels, spec_height, spec_width), dtype=np.float32)
-
-        for batch in range(batch_size_cnn):
-            start = batch * spec_width
-            end = start + spec_width
-            current_batch = spec[:, start : end]
-            current[batch, 0] = current_batch
+        current[0, 0] = mel[:, 0 : spec_width]
 
         # Calculate for whole batch
-        result_frames = self.generate_sample(current)
-        result_frames = result_frames.cpu().numpy()
+        mel = self.generate_sample(current)
+        mel = mel.cpu().numpy()
 
-        for batch in range(batch_size_cnn):
-            start = batch * spec_width
-            end = start + spec_width
-            result[:, start : end] = result_frames[batch][0]
+        result[:, 0  : spec_width] = mel[0]
 
         # Mel
-        inv_db_final = map_to_range(result, 0, 1, -120, 0)
+        inv_db_final = map_to_range(result, 0, 1, -top_db, 0)
         inv_pow = librosa.db_to_power(inv_db_final)
 
         # SHOW
@@ -162,3 +145,5 @@ class Model:
             # When using mel specrogram
             sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, sample_rate, n_fft, hop_size, n_fft)
             return sig_result
+        else:
+            return result

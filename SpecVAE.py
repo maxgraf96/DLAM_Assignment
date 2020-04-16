@@ -4,12 +4,13 @@ import torch
 from torch import nn
 import matplotlib.pyplot as plt
 
-from Hyperparameters import batch_size_cnn, spec_height, input_channels, hop_size, sample_rate, spec_width
+from Hyperparameters import batch_size_cnn, spec_height, input_channels, hop_size, sample_rate, spec_width, top_db
 
 # from Freesound import Plot
 
 # Parameters for CNN
 # kernel_size = 0
+
 padding = 0
 stride = 0
 
@@ -83,6 +84,8 @@ class SpecVAECNN(SpecVAE):
         self.spec_width = spec_width
         self.spec_height = spec_height
 
+        # self.mel2lin = Mel2LinCBHG(epochs, self.dataset_length)
+
         # self.fc1 = nn.Linear(H_DIMS_CNN, ZDIMS_CNN)
         # self.fc2 = nn.Linear(H_DIMS_CNN, ZDIMS_CNN)
         # self.fc3 = nn.Linear(ZDIMS_CNN, H_DIMS_CNN)
@@ -100,15 +103,11 @@ class SpecVAECNN(SpecVAE):
         return mu + eps * std
 
     def forward(self, x):
-        # piano = x['sound']
-        # synth = x['sound_synth']
         x = self.encoder(x)
-        # synth = self.encoder(synth)
         z, mu, logvar = self.bottleneck(x)
-        # z_s, mu_s, logvar_s = self.bottleneck(synth)
         # z = self.fc3(z)
-        z = self.decoder(z)
-        return z, mu, logvar
+        mel = self.decoder(z)
+        return mel, mu, logvar
 
     def forward_sample(self, sample):
         """
@@ -119,21 +118,8 @@ class SpecVAECNN(SpecVAE):
         sample = self.encoder(sample)
         z, mu, logvar = self.bottleneck(sample)
         # z = self.fc3(z)
-        z = self.decoder(z)
-        return z, mu, logvar
+        mel = self.decoder(z)
+        return mel, mu, logvar
 
     def representation(self, x):
         return self.bottleneck(self.encoder(x))[0]
-
-def plot_final(data):
-    plt.figure(figsize=(14, 8))
-    data_db = librosa.amplitude_to_db(data, ref=np.max, top_db=120)
-    librosa.display.specshow(data_db, y_axis='log', x_axis='time', sr=sample_rate, hop_length=hop_size)
-    plt.colorbar(format='%+2.0f dB')
-    plt.show()
-
-def plot_final_mel(data):
-    plt.figure(figsize=(14, 8))
-    librosa.display.specshow(data, y_axis='mel', x_axis='time', sr=sample_rate, hop_length=hop_size)
-    plt.colorbar(format='%+2.0f dB')
-    plt.show()

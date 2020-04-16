@@ -7,6 +7,8 @@ sep = os.path.sep
 
 # Generated directory
 gen_dir = 'data' + sep + 'generated'
+model_path = "model.torch"
+
 
 # STFT params
 sample_rate = 22050
@@ -15,21 +17,21 @@ hop_size = 256
 limit_s = 30
 width_seconds = 30
 spec_width = int(width_seconds / (hop_size / sample_rate))
-# spec_height = int(n_fft / 2) + 1
+stft_height = int(n_fft / 2) + 1
 # When using mel spectrogram
-n_mels = 80
+n_mels = 128
 spec_height = n_mels
 
 # Hyperparameters for torch
 cuda = torch.cuda.is_available()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size_cnn = 1
-epochs = 200
+epochs = 600
 log_epochs = 20
 log_interval = 60
 
 # CNN params
 input_channels = 1
 
-# GRU params
-batch_size_gru = 151
+# dB flooring for amp/pow to dB conversions
+top_db = 120
