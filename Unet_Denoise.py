@@ -1,6 +1,14 @@
+import librosa
 import torch
 from torch import nn
 import torch.nn.functional as F
+import numpy as np
+
+from Dataset import map_to_range
+from DatasetCreator import create_spectrogram
+from Hyperparameters import device, top_db, spec_height, batch_size_cnn, input_channels, sample_rate, n_fft, hop_size
+from Util import plot_final_mel
+
 
 class UNet(nn.Module):
     def __init__(
@@ -54,7 +62,7 @@ class UNet(nn.Module):
             )
             prev_channels = 2 ** (wf + i)
 
-        self.last = nn.Conv2d(prev_channels, n_classes, kernel_size=1)
+        self.last = nn.Conv2d(prev_channels, n_classes, kernel_size=(1, 1))
 
     def forward(self, x):
         blocks = []
@@ -70,7 +78,6 @@ class UNet(nn.Module):
         output = self.last(x)
 
         return output
-
 
 class UNetConvBlock(nn.Module):
     def __init__(self, in_size, out_size, padding, batch_norm):
@@ -123,3 +130,42 @@ class UNetUpBlock(nn.Module):
         out = self.conv_block(out)
 
         return out
+
+def generate_sample(model, spec):
+    with torch.no_grad():
+        sample = torch.from_numpy(spec).float().to(device)
+        mel = model(sample)
+        return mel
+
+def generate(model, path, with_return=True):
+    model.eval()
+
+    mel = create_spectrogram(path)
+    if with_return:
+        print("Original")
+        inv_db = map_to_range(mel, 0, 1, -top_db, 0)
+        plot_final_mel(inv_db)
+
+    result = np.zeros((spec_height, 2576))
+    # Fill batches
+    current = np.zeros((batch_size_cnn, input_channels, spec_height, 2576), dtype=np.float32)
+    current[0, 0] = mel[:, 0 : 2576]
+
+    # Calculate for whole batch
+    mel = generate_sample(model, current)
+    mel = mel.cpu().numpy()
+
+    result[:, 0  : 2576] = mel[0]
+
+    # Mel
+    inv_db_final = map_to_range(result, 0, 1, -top_db, 0)
+    inv_pow = librosa.db_to_power(inv_db_final)
+
+    # SHOW
+    plot_final_mel(inv_db_final)
+
+    if with_return:
+        sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, sample_rate, n_fft, hop_size, n_fft)
+        return sig_result
+    else:
+        return result

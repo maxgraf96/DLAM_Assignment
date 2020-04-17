@@ -26,7 +26,9 @@ spec_height = n_mels
 cuda = torch.cuda.is_available()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size_cnn = 1
+batch_size_unet = 8
 epochs = 600
+epochs_unet = 100
 log_epochs = 20
 log_interval = 60
 

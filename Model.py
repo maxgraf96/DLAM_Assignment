@@ -12,10 +12,9 @@ from Util import plot_final, plot_final_mel
 
 
 class Model:
-    def __init__(self, model, device, log_interval):
+    def __init__(self, model, device):
         self.model = model
         self.device = device
-        self.log_interval = log_interval
         self.prevloss = -1
         self.sameloss = False
         self.samelosscounter = 0
@@ -140,10 +139,10 @@ class Model:
         # plot_final(inv_mag)
         plot_final_mel(inv_db_final)
 
-        if with_return:
+        # if with_return:
             # sig_result = librosa.feature.inverse.griffinlim(inv_mag, n_iter=100, hop_length=hop_size, win_length=n_fft)
             # When using mel specrogram
-            sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, sample_rate, n_fft, hop_size, n_fft)
-            return sig_result
-        else:
-            return result
+            # sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, sample_rate, n_fft, hop_size, n_fft)
+            # return sig_result
+
+        return result

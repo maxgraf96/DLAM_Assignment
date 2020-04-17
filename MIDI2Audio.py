@@ -7,6 +7,8 @@ from Hyperparameters import sep
 
 sample_rate = 22050
 num_channels = 2
+sf_piano = "SoundFonts" + sep + "steinway.sf2"
+sf_synth = "SoundFonts" + sep + "JR" + sep + "JR_elepiano.sf2"
 
 def synthesise_midi_to_audio(midi_path, output_path, soundfont_path):
     # Create destination folder if it doesn't exist
@@ -49,11 +51,31 @@ def synthesise_all(mode, soundfont_path):
         print("Converting " + midi_str)
         synthesise_midi_to_audio(midi_str, "data" + sep + mode + sep + filename + ".wav", soundfont_path)
 
+def create_test_set():
+    midis = Path("data" + sep + "MIDI").rglob("*.mid")
+    for midi in midis:
+        # Convert path to string
+        midi_str = str(midi)
+        # Get filename
+        filename = midi_str.split(sep)[-1][:-4]
+        # Only alb for now
+        if filename[:3] != "alb":
+            continue
+
+        # Check if wav already exists
+        if os.path.exists("data" + sep + "test" + sep + filename + ".wav"):
+            print("Wav file for " + filename + " already exists. Delete it if you want to regenerate it. Continuing...")
+            continue
+
+        print("Converting " + midi_str)
+        synthesise_midi_to_audio(midi_str, "data" + sep + "test" + sep + filename + ".wav", sf_piano)
+
 # Synthesise all piano files
 # synthesise_all("piano", "SoundFonts/steinway.sf2")
 
-synth_sf = "SoundFonts" + sep + "JR" + sep + "JR_elepiano.sf2"
 # Synthesise all synth files
-synthesise_all("synth", synth_sf)
+# synthesise_all("synth", synth_sf)
 
 # synthesise_midi_to_audio("data" + sep + "MIDI" + sep + "chpn_op7_1.mid", "data" + sep + "synth" + sep + "chpn_op7_1.wav", synth_sf)
+
+create_test_set()

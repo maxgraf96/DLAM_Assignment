@@ -48,8 +48,8 @@ class UnFlatten(nn.Module):
         return unflattened
 
 class SpecVAECNN(SpecVAE):
-    def __init__(self, epochs, dataset_length, is_plot=False):
-        SpecVAE.__init__(self, epochs, dataset_length, is_plot)
+    def __init__(self, epochs, is_plot=False):
+        SpecVAE.__init__(self, epochs, is_plot)
 
         self.encoder = nn.Sequential(
             nn.Conv2d(input_channels, 64, kernel_size=(spec_height, 1), padding=padding),
@@ -83,8 +83,6 @@ class SpecVAECNN(SpecVAE):
 
         self.spec_width = spec_width
         self.spec_height = spec_height
-
-        # self.mel2lin = Mel2LinCBHG(epochs, self.dataset_length)
 
         # self.fc1 = nn.Linear(H_DIMS_CNN, ZDIMS_CNN)
         # self.fc2 = nn.Linear(H_DIMS_CNN, ZDIMS_CNN)

@@ -6,7 +6,7 @@ import torch
 from scipy import stats
 from torch.utils.data import Dataset
 
-from Hyperparameters import sep
+from Hyperparameters import sep, spec_width
 
 
 class UnetDataset(Dataset):
@@ -52,8 +52,8 @@ class UnetDataset(Dataset):
         input_mel_path = self.input_mel_filenames[idx]
         gt_mel_path = self.input_to_gt[self.input_mel_filenames[idx]]
 
-        input_mel = self.get_spectrogram(input_mel_path)
-        gt_mel = self.get_spectrogram(gt_mel_path)
+        input_mel = self.get_spectrogram(input_mel_path)[:, :2576]
+        gt_mel = self.get_spectrogram(gt_mel_path)[:, :2576]
 
         # If only the magnitude is used another channel dimension is needed for pytorch
         input_mel = np.expand_dims(input_mel, axis=0)
