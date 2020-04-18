@@ -1,9 +1,18 @@
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
+import numpy as np
 
 from Hyperparameters import sample_rate, hop_size
 
+def map_to_zero_one(spec, min_from, max_from):
+    return map_to_range(spec, min_from, max_from, 0, 1)
+
+def map_to_range(spec, input_start, input_end, output_start, output_end):
+    copy = np.copy(spec)
+    slope = 1.0 * (output_end - output_start) / (input_end - input_start)
+    copy = output_start + slope * (copy - input_start)
+    return copy
 
 def plot_final(data):
     """

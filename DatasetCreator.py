@@ -4,7 +4,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 
-from Dataset import map_to_zero_one
+from Util import map_to_zero_one
 from Hyperparameters import sep, gen_dir, n_fft, hop_size, sample_rate, spec_width, limit_s, n_mels, top_db
 
 
@@ -18,7 +18,9 @@ def create_spectrogram(path):
 
     # Calculate Mel spectrogram
     mel = librosa.feature.melspectrogram(sig, sr=sample_rate, n_fft=n_fft, hop_length=hop_size, n_mels=n_mels)
+    # Convert to dB
     mel = librosa.power_to_db(mel, ref=np.max, top_db=top_db)
+    # Map to range [0...1]
     min_db = np.min(mel)
     max_db = np.max(mel)
     mel = map_to_zero_one(mel, min_db, max_db)
@@ -32,7 +34,7 @@ def create_datapoints(wav_path, mode, number_of_wavs, counter):
     folder = gen_dir + sep + filename + sep + mode
     # Check if there is already an existing spectrogram
     if os.path.exists(folder):
-        # print("Spectrogram for " + filename + " already exists. Skipping...")
+        print("Spectrogram for " + filename + " already exists. Skipping...")
         return
 
     # Print progress information
@@ -41,9 +43,12 @@ def create_datapoints(wav_path, mode, number_of_wavs, counter):
     # Create folder
     Path(folder).mkdir(parents=True, exist_ok=True)
 
+    # Create Mel spectrogram
     mel = create_spectrogram(wav_str)
 
     # Create data points for the CNN
+    # Currently one data point corresponds to the whole clip (30s long)
+    # In the future this could be altered to accomodate longer clips
     width = spec_width
     frame_counter = 0
     for frame in range(0, mel.shape[1], width):
@@ -72,8 +77,6 @@ def initialise_dataset():
     number_of_wavs = len([name for name in os.listdir(piano_dir)])
     piano_wavs = Path(piano_dir).rglob("*.wav")
     for wav in piano_wavs:
-        # if 'chpn_op7_1' not in str(wav):
-        #     continue
         counter += 1
         create_datapoints(wav, 'piano', number_of_wavs, counter)
 
@@ -81,7 +84,5 @@ def initialise_dataset():
     counter = 0
     synth_wavs = Path(synth_dir).rglob("*.wav")
     for wav in synth_wavs:
-        # if 'chpn_op7_1' not in str(wav):
-        #     continue
         counter += 1
         create_datapoints(wav, 'synth', number_of_wavs, counter)

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 import Unet_Denoise
-from Dataset import map_to_range
+from Util import map_to_range
 from Hyperparameters import epochs, device, top_db, sep, sample_rate, n_fft, hop_size
 from Model import Model
 from SpecVAE import SpecVAECNN

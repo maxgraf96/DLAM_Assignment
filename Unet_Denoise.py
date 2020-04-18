@@ -4,9 +4,10 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 
-from Dataset import map_to_range
+from Util import map_to_range
 from DatasetCreator import create_spectrogram
-from Hyperparameters import device, top_db, spec_height, batch_size_cnn, input_channels, sample_rate, n_fft, hop_size
+from Hyperparameters import device, top_db, spec_height, batch_size_cnn, input_channels, sample_rate, n_fft, hop_size, \
+    unet_width
 from Util import plot_final_mel
 
 
@@ -146,16 +147,16 @@ def generate(model, path, with_return=True):
         inv_db = map_to_range(mel, 0, 1, -top_db, 0)
         plot_final_mel(inv_db)
 
-    result = np.zeros((spec_height, 2576))
+    result = np.zeros((spec_height, unet_width))
     # Fill batches
-    current = np.zeros((batch_size_cnn, input_channels, spec_height, 2576), dtype=np.float32)
-    current[0, 0] = mel[:, 0 : 2576]
+    current = np.zeros((batch_size_cnn, input_channels, spec_height, unet_width), dtype=np.float32)
+    current[0, 0] = mel[:, 0 : unet_width]
 
     # Calculate for whole batch
     mel = generate_sample(model, current)
     mel = mel.cpu().numpy()
 
-    result[:, 0  : 2576] = mel[0]
+    result[:, 0  : unet_width] = mel[0]
 
     # Mel
     inv_db_final = map_to_range(result, 0, 1, -top_db, 0)

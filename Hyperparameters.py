@@ -7,7 +7,7 @@ sep = os.path.sep
 
 # Generated directory
 gen_dir = 'data' + sep + 'generated'
-model_path = "model.torch"
+model_path = "ae.torch"
 
 
 # STFT params
@@ -25,15 +25,21 @@ spec_height = n_mels
 # Hyperparameters for torch
 cuda = torch.cuda.is_available()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-batch_size_cnn = 1
-batch_size_unet = 8
-epochs = 600
-epochs_unet = 100
+
+# Shared params
 log_epochs = 20
 log_interval = 60
 
 # CNN params
+epochs = 600
 input_channels = 1
+batch_size_cnn = 1
+
+# U-net params
+epochs_unet = 50
+batch_size_unet = 8
+
+unet_width = 2576
 
 # dB flooring for amp/pow to dB conversions
 top_db = 120

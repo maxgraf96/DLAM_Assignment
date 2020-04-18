@@ -3,12 +3,12 @@ import subprocess
 
 # Initialise Fluid Synth with piano soundfont
 from pathlib import Path
-from Hyperparameters import sep
+from Hyperparameters import sep, limit_s
 
 sample_rate = 22050
 num_channels = 2
 sf_piano = "SoundFonts" + sep + "steinway.sf2"
-sf_synth = "SoundFonts" + sep + "JR" + sep + "JR_elepiano.sf2"
+sf_synth = "SoundFonts" + sep + "JR_elepiano.sf2"
 
 def synthesise_midi_to_audio(midi_path, output_path, soundfont_path):
     # Create destination folder if it doesn't exist
@@ -25,10 +25,14 @@ def synthesise_midi_to_audio(midi_path, output_path, soundfont_path):
     # uses internally to write valid wav files (file with headers).
     # Therefore we use this hack that relies on the sox package, which is platform independent
     # Convert raw PCM information into valid *.wav file
+    pretrimmed = output_path[:-4] + '_full_length.wav'
     subprocess.call(['sox', '-t',  'raw', '-r', str(sample_rate),  '-e',  'signed-integer', '-b', '16', '-c',
-                     str(num_channels), raw_path, output_path])
+                     str(num_channels), raw_path, pretrimmed])
+    # Trim to 30 seconds
+    subprocess.call(['sox', pretrimmed, output_path, 'trim', '0', str(limit_s)])
 
-    # Delete interim raw audio *.dat file
+    # Delete interim raw audio *.dat and full length files
+    os.remove(pretrimmed)
     os.remove(raw_path)
 
 def synthesise_all(mode, soundfont_path):
@@ -39,9 +43,6 @@ def synthesise_all(mode, soundfont_path):
         midi_str = str(midi)
         # Get filename
         filename = midi_str.split(sep)[-1][:-4]
-        # Only Chopin for now
-        if filename[:3] != "chp":
-            continue
 
         # Check if wav already exists
         if os.path.exists("data" + sep + mode + sep + filename + ".wav"):
@@ -52,15 +53,12 @@ def synthesise_all(mode, soundfont_path):
         synthesise_midi_to_audio(midi_str, "data" + sep + mode + sep + filename + ".wav", soundfont_path)
 
 def create_test_set():
-    midis = Path("data" + sep + "MIDI").rglob("*.mid")
+    midis = Path("data" + sep + "MIDI_test").rglob("*.mid")
     for midi in midis:
         # Convert path to string
         midi_str = str(midi)
         # Get filename
         filename = midi_str.split(sep)[-1][:-4]
-        # Only alb for now
-        if filename[:3] != "alb":
-            continue
 
         # Check if wav already exists
         if os.path.exists("data" + sep + "test" + sep + filename + ".wav"):
@@ -71,11 +69,10 @@ def create_test_set():
         synthesise_midi_to_audio(midi_str, "data" + sep + "test" + sep + filename + ".wav", sf_piano)
 
 # Synthesise all piano files
-# synthesise_all("piano", "SoundFonts/steinway.sf2")
+synthesise_all("piano", sf_piano)
 
 # Synthesise all synth files
-# synthesise_all("synth", synth_sf)
+synthesise_all("synth", sf_synth)
 
-# synthesise_midi_to_audio("data" + sep + "MIDI" + sep + "chpn_op7_1.mid", "data" + sep + "synth" + sep + "chpn_op7_1.wav", synth_sf)
-
+# Create test set with mozart songs
 create_test_set()

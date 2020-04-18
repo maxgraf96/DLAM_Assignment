@@ -4,7 +4,7 @@ import torch
 from torch.nn import functional as F
 
 import DatasetCreator
-from Dataset import map_to_range
+from Util import map_to_range
 from DatasetCreator import create_spectrogram
 from Hyperparameters import spec_height, input_channels, n_fft, hop_size, spec_width, log_interval, log_epochs, \
     sample_rate, batch_size_cnn, sep, top_db
@@ -54,7 +54,7 @@ class Model:
             epoch, train_loss / len(train_loader.dataset)))
 
         current_avg_loss = train_loss / len(train_loader.dataset)
-        self.sameloss = np.isclose(current_avg_loss, self.samelosscounter, rtol=0.0001, atol=0.0001)
+        self.sameloss = np.isclose(current_avg_loss, self.samelosscounter, atol=1e-3)
         if self.sameloss:
             self.samelosscounter += 1
             print("Same loss counter +1. Is now: " + str(self.samelosscounter))
@@ -67,13 +67,15 @@ class Model:
         self.prevloss = current_avg_loss
 
         # Early stop if loss doesn't change for 3 epochs
-        if self.samelosscounter == 3:
+        if self.samelosscounter == 10:
             print("Loss is the same since last three epochs. Early stopping")
-            return True
+            return current_avg_loss, True
 
         if epoch % log_epochs == 0:
             # Plot snapshot of current representation
             self.generate("data" + sep + "piano" + sep + "chpn_op7_1.wav", with_return=False)
+
+        return current_avg_loss, False
 
     def test(self, test_loader, epoch):
         self.model.eval()
@@ -89,6 +91,7 @@ class Model:
 
         test_loss /= len(test_loader.dataset)
         print('====> Test set loss: {:.4f}'.format(test_loss))
+        return test_loss
 
     def generate_sample(self, spec):
         with torch.no_grad():
