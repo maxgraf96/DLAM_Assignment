@@ -48,20 +48,20 @@ if __name__ == '__main__':
         transform = UnetDataset.ToTensor()
         dataset = UnetDataset.UnetDataset(root_dir=output_dir, gt_dir=root_dir, transform=transform)
 
-        # Split into training and test sets
+        # Split into training and validation sets
         train_size = int(len(dataset) * 0.8)
-        test_size = len(dataset) - train_size
-        train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+        val_size = len(dataset) - train_size
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 
         # Create dataloaders
         train_loader = DataLoader(train_dataset, batch_size=batch_size_unet, shuffle=True, num_workers=8, drop_last=True)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size_unet, shuffle=True, num_workers=8, drop_last=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size_unet, shuffle=True, num_workers=8, drop_last=True)
 
         model = UNet(n_classes=1, depth=4, padding=True).to(device)
         optimizer = optim.Adam(model.parameters(), lr=1e-3)
         # Placeholders for loss tracking
         train_losses = []
-        test_losses = []
+        val_losses = []
 
         for epoch in range(1, epochs_unet + 1):
             model.train()
@@ -86,33 +86,32 @@ if __name__ == '__main__':
             current_avg_loss = train_loss / len(train_loader.dataset)
             train_losses.append(current_avg_loss)
 
-            # Test progress
             if epoch % 5 == 0:
-                generate(model, "data" + sep + "synth" + sep + "chpn_op7_1.wav", with_return=False)
+                generate(model, input, "data" + sep + "synth" + sep + "chpn_op7_1.wav", with_return=False)
 
             print('====> Epoch: {} Average loss: {:.10f}'.format(
                 epoch, train_loss / len(train_loader.dataset)))
 
-            # Test
+            # Validation
             model.eval()
-            test_loss = 0
+            val_loss = 0
             with torch.no_grad():
-                for i, data in enumerate(test_loader):
+                for i, data in enumerate(val_loader):
                     # Convert tensors to cuda
                     input = data['input_mel'].to(device)
                     ground_truth = data['gt_mel'].to(device)
                     out = model(input)
                     loss = loss_function(out, ground_truth)
-                    test_loss += loss.item()
+                    val_loss += loss.item()
 
-            test_loss /= len(test_loader.dataset)
-            print('====> Test set loss: {:.4f}'.format(test_loss))
+            val_loss /= len(val_loader.dataset)
+            print('====> Validation set loss: {:.4f}'.format(val_loss))
 
-            test_losses.append(test_loss)
+            val_losses.append(val_loss)
 
         # Save losses
         np.save("train_losses_unet", np.array(train_losses))
-        np.save("test_losses_unet", np.array(test_losses))
+        np.save("val_losses_unet", np.array(val_losses))
 
         # Save model so we don't have to train every time
         torch.save(model.state_dict(), model_path)

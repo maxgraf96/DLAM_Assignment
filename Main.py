@@ -12,7 +12,7 @@ from SpecVAE import SpecVAECNN
 from Unet_Denoise import UNet
 from Util import plot_final_mel
 
-ae_path = "model.torch"
+ae_path = "ae.torch"
 unet_path = "unet.torch"
 
 global ae_wrapper

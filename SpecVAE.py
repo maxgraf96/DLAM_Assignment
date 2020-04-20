@@ -60,11 +60,9 @@ class SpecVAECNN(SpecVAE):
             nn.Tanh(),
             nn.Conv2d(128, 256, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(256),
-            # Flatten()
         )
 
         self.decoder = nn.Sequential(
-            # UnFlatten(),
             nn.ConvTranspose2d(256, 128, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
             nn.Tanh(),
@@ -77,19 +75,8 @@ class SpecVAECNN(SpecVAE):
 
         test_encode = self.encoder(torch.randn(batch_size_cnn, input_channels, spec_height, spec_width))
         test_decode = self.decoder(test_encode)
-        decoder_shape = test_decode.shape
-        H_DIMS_CNN = test_encode.shape[0]
-        ZDIMS_CNN = 128
-
-        self.spec_width = spec_width
-        self.spec_height = spec_height
-
-        # self.fc1 = nn.Linear(H_DIMS_CNN, ZDIMS_CNN)
-        # self.fc2 = nn.Linear(H_DIMS_CNN, ZDIMS_CNN)
-        # self.fc3 = nn.Linear(ZDIMS_CNN, H_DIMS_CNN)
 
     def bottleneck(self, h):
-        # mu, logvar = self.fc1(h), self.fc2(h)
         mu = h.clone()
         logvar = h.clone()
         z = self.reparameterize(mu, logvar)
@@ -103,7 +90,6 @@ class SpecVAECNN(SpecVAE):
     def forward(self, x):
         x = self.encoder(x)
         z, mu, logvar = self.bottleneck(x)
-        # z = self.fc3(z)
         mel = self.decoder(z)
         return mel, mu, logvar
 

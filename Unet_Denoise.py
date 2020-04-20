@@ -138,14 +138,18 @@ def generate_sample(model, spec):
         mel = model(sample)
         return mel
 
-def generate(model, path, with_return=True):
+def generate(model, ae_output, path, with_return=True):
     model.eval()
 
     mel = create_spectrogram(path)
     if with_return:
-        print("Original")
+        print("Original ground truth")
         inv_db = map_to_range(mel, 0, 1, -top_db, 0)
         plot_final_mel(inv_db)
+
+    print("Autoencoder output")
+    inv_db = map_to_range(ae_output, 0, 1, -top_db, 0)
+    plot_final_mel(inv_db)
 
     result = np.zeros((spec_height, unet_width))
     # Fill batches

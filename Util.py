@@ -1,9 +1,12 @@
 import librosa
 import librosa.display
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
 
 from Hyperparameters import sample_rate, hop_size
+
+mpl.rcParams['figure.dpi'] = 300 # Set high dpi for high-quality plots
 
 def map_to_zero_one(spec, min_from, max_from):
     return map_to_range(spec, min_from, max_from, 0, 1)

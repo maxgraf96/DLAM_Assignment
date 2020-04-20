@@ -77,9 +77,9 @@ class Model:
 
         return current_avg_loss, False
 
-    def test(self, test_loader, epoch):
+    def validate(self, test_loader):
         self.model.eval()
-        test_loss = 0
+        val_loss = 0
         with torch.no_grad():
             for i, data in enumerate(test_loader):
                 # Convert tensors to cuda
@@ -87,11 +87,11 @@ class Model:
                 synth = data['synth_mel'].to(self.device)
                 mel, mu, logvar = self.model(piano)
                 loss = self.loss_function(mel, synth)
-                test_loss += loss.item()
+                val_loss += loss.item()
 
-        test_loss /= len(test_loader.dataset)
-        print('====> Test set loss: {:.4f}'.format(test_loss))
-        return test_loss
+        val_loss /= len(test_loader.dataset)
+        print('====> Test set loss: {:.4f}'.format(val_loss))
+        return val_loss
 
     def generate_sample(self, spec):
         with torch.no_grad():
