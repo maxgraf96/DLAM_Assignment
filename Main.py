@@ -4,12 +4,11 @@ import librosa
 import numpy as np
 import torch
 
-import UNet
-from Util import map_to_range
-from Hyperparameters import epochs, device, top_db, sep, sample_rate, n_fft, hop_size
 from AEModel import AEModel
 from Autoencoder import Autoencoder
-from UNet import UNet
+from Hyperparameters import device, top_db, sample_rate, n_fft, hop_size
+from UNet import UNet, generate_sample
+from Util import map_to_range
 from Util import plot_mel
 
 ae_path = "ae.torch"
@@ -25,7 +24,7 @@ def pipeline(path):
     # Feed into U-Net
     unet_input = np.expand_dims(ae_output, axis=0)
     unet_input = np.expand_dims(unet_input, axis=0)
-    unet_output = UNet.generate_sample(unet, unet_input).cpu().numpy()[0, 0]
+    unet_output = generate_sample(unet, unet_input).cpu().numpy()[0, 0]
 
     db = map_to_range(unet_output, 0, 1, -top_db, 0)
     print("Final output")
@@ -41,7 +40,7 @@ if __name__ == '__main__':
         print("Autoencoder and U-Net models not present. Please train the networks first.")
 
     print("Loading autoencoder model...")
-    ae = Autoencoder(epochs).to(device)
+    ae = Autoencoder().to(device)
     ae.load_state_dict(torch.load(ae_path))
     ae.eval()
     ae_wrapper = AEModel(ae, device)
