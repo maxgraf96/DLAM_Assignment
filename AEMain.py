@@ -26,6 +26,10 @@ global dataset
 global spec_width, spec_height
 
 def create_unet_dataset():
+    """
+    Create the data for the U-Net dataset once the autoencoder model is trained
+    :return: None
+    """
     # Iterate over piano songs and save generated spectrograms for use in U-Net
     print("Generating autoencoder outputs for use in U-Net...")
     piano_wavs = Path("data" + sep + "piano").rglob("*.wav")
@@ -36,6 +40,7 @@ def create_unet_dataset():
         print("Generating autoencoder output for " + path)
         gen = main.generate(path, plot_original=False)
         filename = path.split(sep)[-1][:-4]
+        # Save to *.npy file
         np.save(output_dir + sep + filename + "_output", gen)
 
 if __name__ == '__main__':
@@ -80,7 +85,7 @@ if __name__ == '__main__':
             train_losses.append(loss)
             val_losses.append(val_loss)
 
-        # Save losses
+        # Save losses for evaluation
         np.save("train_losses_ae", np.array(train_losses))
         np.save("val_losses_ae", np.array(val_losses))
 
@@ -92,7 +97,7 @@ if __name__ == '__main__':
 
 
     # Generate something
-    gen = main.generate("data" + sep + "piano" + sep + "chpn_op7_1.wav")
+    # gen = main.generate("data" + sep + "piano" + sep + "chpn_op7_1.wav")
     # gen = librosa.util.normalize(gen)
 
     # Display (only works on IPython notebooks)

@@ -4,12 +4,12 @@ import librosa
 import numpy as np
 import torch
 
-import Unet_Denoise
+import UNet
 from Util import map_to_range
 from Hyperparameters import epochs, device, top_db, sep, sample_rate, n_fft, hop_size
 from AEModel import AEModel
 from Autoencoder import Autoencoder
-from Unet_Denoise import UNet
+from UNet import UNet
 from Util import plot_mel
 
 ae_path = "ae.torch"
@@ -25,7 +25,7 @@ def pipeline(path):
     # Feed into U-Net
     unet_input = np.expand_dims(ae_output, axis=0)
     unet_input = np.expand_dims(unet_input, axis=0)
-    unet_output = Unet_Denoise.generate_sample(unet, unet_input).cpu().numpy()[0, 0]
+    unet_output = UNet.generate_sample(unet, unet_input).cpu().numpy()[0, 0]
 
     db = map_to_range(unet_output, 0, 1, -top_db, 0)
     print("Final output")
