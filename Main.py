@@ -7,10 +7,10 @@ import torch
 import Unet_Denoise
 from Util import map_to_range
 from Hyperparameters import epochs, device, top_db, sep, sample_rate, n_fft, hop_size
-from Model import Model
-from SpecVAE import SpecVAECNN
+from AEModel import AEModel
+from Autoencoder import Autoencoder
 from Unet_Denoise import UNet
-from Util import plot_final_mel
+from Util import plot_mel
 
 ae_path = "ae.torch"
 unet_path = "unet.torch"
@@ -20,7 +20,7 @@ global unet
 
 def pipeline(path):
     # Get the autoencoder output
-    ae_output: np.ndarray = ae_wrapper.generate(path, with_return=True)
+    ae_output: np.ndarray = ae_wrapper.generate(path, plot_original=True)
 
     # Feed into U-Net
     unet_input = np.expand_dims(ae_output, axis=0)
@@ -29,7 +29,7 @@ def pipeline(path):
 
     db = map_to_range(unet_output, 0, 1, -top_db, 0)
     print("Final output")
-    plot_final_mel(db)
+    plot_mel(db)
 
     print("Converting spectrogram back to signal...")
     power = librosa.db_to_power(db)
@@ -41,10 +41,10 @@ if __name__ == '__main__':
         print("Autoencoder and U-Net models not present. Please train the networks first.")
 
     print("Loading autoencoder model...")
-    ae = SpecVAECNN(epochs).to(device)
+    ae = Autoencoder(epochs).to(device)
     ae.load_state_dict(torch.load(ae_path))
     ae.eval()
-    ae_wrapper = Model(ae, device)
+    ae_wrapper = AEModel(ae, device)
     print("Autoencoder model successfully loaded.")
 
     print("Loading U-Net model...")

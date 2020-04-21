@@ -1,56 +1,16 @@
-import librosa.display
-import numpy as np
 import torch
 from torch import nn
-import matplotlib.pyplot as plt
 
-from Hyperparameters import batch_size_cnn, spec_height, input_channels, hop_size, sample_rate, spec_width, top_db
-
-# from Freesound import Plot
+from Hyperparameters import batch_size_autoencoder, spec_height, input_channels, spec_width
 
 # Parameters for CNN
-# kernel_size = 0
-
 padding = 0
-stride = 0
 
-# Parameters for ANN
-ZDIMS_ANN = 100
-unflatten_dims : torch.Tensor = None
-
-class SpecVAE(nn.Module):
-    """
-    Superclass for spectrogram related VAE
-    CNN and ANN implementations are child classes of this.
-    """
-    def __init__(self, epochs, dataset_length, is_plot=False):
+class Autoencoder(nn.Module):
+    def __init__(self):
         nn.Module.__init__(self)
-        # Flag for plotting
-        self.is_plot = is_plot
-        # Counter for epoch (used for naming in plotting)
-        self.total_epochs = epochs
-        self.current_epoch = 1
-        self.dataset_length = dataset_length
 
-    def set_epoch(self, epoch):
-        self.current_epoch = epoch
-
-class Flatten(nn.Module):
-    def forward(self, input):
-        global unflatten_dims
-        if unflatten_dims is None:
-            unflatten_dims = input.shape
-        return input.view(-1)
-
-class UnFlatten(nn.Module):
-    def forward(self, input: torch.Tensor):
-        unflattened = input.view(unflatten_dims)
-        return unflattened
-
-class SpecVAECNN(SpecVAE):
-    def __init__(self, epochs, is_plot=False):
-        SpecVAE.__init__(self, epochs, is_plot)
-
+        # Encoder
         self.encoder = nn.Sequential(
             nn.Conv2d(input_channels, 64, kernel_size=(spec_height, 1), padding=padding),
             nn.BatchNorm2d(64),
@@ -62,6 +22,7 @@ class SpecVAECNN(SpecVAE):
             nn.BatchNorm2d(256),
         )
 
+        # Decoder using transposed convolution layers
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(256, 128, kernel_size=(1, 2), stride=(1, 2), padding=padding),
             nn.BatchNorm2d(128),
@@ -73,21 +34,38 @@ class SpecVAECNN(SpecVAE):
             nn.Sigmoid()
         )
 
-        test_encode = self.encoder(torch.randn(batch_size_cnn, input_channels, spec_height, spec_width))
-        test_decode = self.decoder(test_encode)
+        # Included to query the dimensionality of the latent representations
+        # test_encode = self.encoder(torch.randn(batch_size_cnn, input_channels, spec_height, spec_width))
+        # test_decode = self.decoder(test_encode)
 
-    def bottleneck(self, h):
-        mu = h.clone()
-        logvar = h.clone()
+    def bottleneck(self, x):
+        """
+        Create the latent representation
+        :param x: The input tensor
+        :return: The latent representation
+        """
+        mu = x.clone()
+        logvar = x.clone()
         z = self.reparameterize(mu, logvar)
         return z, mu, logvar
 
     def reparameterize(self, mu, logvar):
+        """
+        Create latent representation by reparametrising the input
+        :param mu: The mean
+        :param logvar:
+        :return:
+        """
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
 
     def forward(self, x):
+        """
+        Forward pass
+        :param x: The input tensor
+        :return: The output tensor (mel spectrogram), its mean and variance
+        """
         x = self.encoder(x)
         z, mu, logvar = self.bottleneck(x)
         mel = self.decoder(z)
@@ -96,14 +74,10 @@ class SpecVAECNN(SpecVAE):
     def forward_sample(self, sample):
         """
         Forward a single element (with no accompanying synth data) => only used for testing
-        :param sample:
+        :param sample: The sample to forward
         :return:
         """
         sample = self.encoder(sample)
         z, mu, logvar = self.bottleneck(sample)
-        # z = self.fc3(z)
         mel = self.decoder(z)
         return mel, mu, logvar
-
-    def representation(self, x):
-        return self.bottleneck(self.encoder(x))[0]

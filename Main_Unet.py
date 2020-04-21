@@ -11,13 +11,13 @@ from torch.utils.data import DataLoader
 import UnetDataset
 from Util import map_to_range
 from DatasetCreator import create_spectrogram
-from Hyperparameters import sep, model_path, device, log_interval, batch_size_cnn, top_db, input_channels, \
+from Hyperparameters import sep, model_path, device, log_interval, batch_size_autoencoder, top_db, input_channels, \
     spec_height, spec_width, sample_rate, n_fft, hop_size, epochs_unet, batch_size_unet
-from Model import Model
+from AEModel import AEModel
 from Unet_Denoise import UNet, generate
 from torch.nn import functional as F
 
-from Util import plot_final_mel
+from Util import plot_mel
 
 loss_fn = nn.MSELoss()
 root_dir = "data" + sep + "generated"

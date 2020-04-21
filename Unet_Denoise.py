@@ -6,9 +6,9 @@ import numpy as np
 
 from Util import map_to_range
 from DatasetCreator import create_spectrogram
-from Hyperparameters import device, top_db, spec_height, batch_size_cnn, input_channels, sample_rate, n_fft, hop_size, \
+from Hyperparameters import device, top_db, spec_height, batch_size_autoencoder, input_channels, sample_rate, n_fft, hop_size, \
     unet_width
-from Util import plot_final_mel
+from Util import plot_mel
 
 
 class UNet(nn.Module):
@@ -145,15 +145,15 @@ def generate(model, ae_output, path, with_return=True):
     if with_return:
         print("Original ground truth")
         inv_db = map_to_range(mel, 0, 1, -top_db, 0)
-        plot_final_mel(inv_db)
+        plot_mel(inv_db)
 
     print("Autoencoder output")
     inv_db = map_to_range(ae_output, 0, 1, -top_db, 0)
-    plot_final_mel(inv_db)
+    plot_mel(inv_db)
 
     result = np.zeros((spec_height, unet_width))
     # Fill batches
-    current = np.zeros((batch_size_cnn, input_channels, spec_height, unet_width), dtype=np.float32)
+    current = np.zeros((batch_size_autoencoder, input_channels, spec_height, unet_width), dtype=np.float32)
     current[0, 0] = mel[:, 0 : unet_width]
 
     # Calculate for whole batch
@@ -167,7 +167,7 @@ def generate(model, ae_output, path, with_return=True):
     inv_pow = librosa.db_to_power(inv_db_final)
 
     # SHOW
-    plot_final_mel(inv_db_final)
+    plot_mel(inv_db_final)
 
     if with_return:
         sig_result = librosa.feature.inverse.mel_to_audio(inv_pow, sample_rate, n_fft, hop_size, n_fft)

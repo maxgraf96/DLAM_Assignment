@@ -33,12 +33,11 @@ log_interval = 60
 # CNN params
 epochs = 600
 input_channels = 1
-batch_size_cnn = 1
+batch_size_autoencoder = 1
 
 # U-net params
 epochs_unet = 50
 batch_size_unet = 8
-
 unet_width = 2576
 
 # dB flooring for amp/pow to dB conversions

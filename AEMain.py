@@ -6,12 +6,12 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
-import Dataset
+import AEDataset
 import DatasetCreator
-from Hyperparameters import batch_size_cnn, epochs, log_interval, sep, device, model_path
-# Initialise dataset
-from Model import Model
-from SpecVAE import SpecVAECNN
+from Autoencoder import Autoencoder
+from Hyperparameters import batch_size_autoencoder, epochs, sep, device, model_path
+
+from AEModel import AEModel
 
 # Pytorch init
 kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
@@ -34,21 +34,21 @@ def create_unet_dataset():
     for wav in piano_wavs:
         path = str(wav)
         print("Generating autoencoder output for " + path)
-        gen = main.generate(path, with_return=False)
+        gen = main.generate(path, plot_original=False)
         filename = path.split(sep)[-1][:-4]
         np.save(output_dir + sep + filename + "_output", gen)
 
 if __name__ == '__main__':
     # Create dataset
-    transform = Dataset.ToTensor()
-    dataset = Dataset.AssignmentDataset(root_dir=root_dir, transform=transform)
+    transform = AEDataset.ToTensor()
+    dataset = AEDataset.AssignmentDataset(root_dir=root_dir, transform=transform)
 
     if os.path.exists(model_path):
         print("Model exists. Loading model...")
-        model = SpecVAECNN(epochs, dataset.length).to(device)
+        model = Autoencoder().to(device)
         model.load_state_dict(torch.load(model_path))
         model.eval()
-        main = Model(model, device)
+        main = AEModel(model, device)
 
         if not os.path.exists(output_dir):
             create_unet_dataset()
@@ -60,12 +60,12 @@ if __name__ == '__main__':
         train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 
         # Create dataloaders
-        train_loader = DataLoader(train_dataset, batch_size=batch_size_cnn, shuffle=True, num_workers=8, drop_last=True)
-        val_loader = DataLoader(val_dataset, batch_size=batch_size_cnn, shuffle=True, num_workers=8, drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size_autoencoder, shuffle=True, num_workers=8, drop_last=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size_autoencoder, shuffle=True, num_workers=8, drop_last=True)
 
-        model = SpecVAECNN(epochs, dataset.length).to(device)
+        model = Autoencoder().to(device)
         optimizer = optim.Adam(model.parameters(), lr=1e-3 * 2)
-        main = Model(model, device)
+        main = AEModel(model, device)
         train_losses = []
         val_losses = []
 
