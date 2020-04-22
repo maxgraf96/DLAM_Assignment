@@ -1,0 +1,1 @@
+When using MIDI2Audio script to generate *.wav from MIDI files, piano output wavs will go here.

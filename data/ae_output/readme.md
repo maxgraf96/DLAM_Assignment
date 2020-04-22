@@ -1,0 +1,1 @@
+After training the autoencoder, the U-Net dataset creation process will store serialised outputs in the .npy format here.

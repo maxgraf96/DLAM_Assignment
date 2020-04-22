@@ -1,4 +1,9 @@
-data/*
+data/ae_output/*.npy
+data/generated/*.npy
+data/MIDI/*.mid
+data/MIDI_test/*.mid
+data/piano/*.wav
+data/synth/*.wav
+data/test/*.wav
 results/*
 .idea/*
-*.sf2
