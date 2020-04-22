@@ -6,7 +6,7 @@ import torch
 
 from AEModel import AEModel
 from Autoencoder import Autoencoder
-from Hyperparameters import device, top_db, sample_rate, n_fft, hop_size
+from Hyperparameters import device, top_db, sample_rate, n_fft, hop_size, sep
 from UNet import UNet, generate_sample
 from Util import map_to_range
 from Util import plot_mel
@@ -52,4 +52,4 @@ if __name__ == '__main__':
     unet.eval()
     print("U-Net model loaded.")
 
-    # pipeline("data" + sep + "piano" + sep + "chp_op18.wav")
+    pipeline("data" + sep + "piano" + sep + "chp_op18.wav")

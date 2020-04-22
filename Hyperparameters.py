@@ -30,7 +30,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 log_epochs = 20
 log_interval = 60
 
-# CNN params
+# Autoencoder params
 epochs = 600
 input_channels = 1
 batch_size_autoencoder = 1

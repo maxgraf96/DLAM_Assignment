@@ -62,7 +62,7 @@ class UNetDataset(Dataset):
         # Add extra channel dimension for pytorch
         input_mel = np.expand_dims(input_mel, axis=0)
         gt_mel = np.expand_dims(gt_mel, axis=0)
-        sample = {'input_mel': input_mel, 'gt_mel': gt_mel}
+        sample = {'input_mel': input_mel, 'gt_mel': gt_mel, 'filename': idx}
 
         if self.transform:
             sample = self.transform(sample)
@@ -81,4 +81,4 @@ class ToTensor(object):
         # Convert to float tensors
         input_mel = torch.from_numpy(input_mel).float()
         gt_mel = torch.from_numpy(gt_mel).float()
-        return {'input_mel': input_mel, 'gt_mel': gt_mel}
+        return {'input_mel': input_mel, 'gt_mel': gt_mel, 'filename': sample['filename']}

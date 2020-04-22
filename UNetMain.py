@@ -91,7 +91,11 @@ if __name__ == '__main__':
             train_losses.append(current_avg_loss)
 
             if epoch % 5 == 0:
-                generate(model, input, "data" + sep + "synth" + sep + "chpn_op7_1.wav", plot_original=False)
+                # Get item from dataset and plot spectrogram to show progress of the model
+                sample = train_dataset.__getitem__(0)
+                input = sample['input_mel'].cpu().numpy()[0]
+                ground_truth = sample['gt_mel'].cpu().numpy()[0]
+                generate(model, input, ground_truth, plot_original=False)
 
             print('====> Epoch: {} Average loss: {:.10f}'.format(
                 epoch, train_loss / len(train_loader.dataset)))

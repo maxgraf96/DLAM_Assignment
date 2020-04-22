@@ -141,7 +141,7 @@ def generate_sample(model, spec):
         mel = model(sample)
         return mel
 
-def generate(model, ae_output, gt_path, plot_original=True):
+def generate(model, ae_output, mel_gt, plot_original=True):
     """
     Helper function to forward a sample spectrogram through the network during training.
     :param model: The U-Net PyTorch model object
@@ -154,10 +154,9 @@ def generate(model, ae_output, gt_path, plot_original=True):
     model.eval()
 
     # Create ground truth spectrogram
-    mel = create_spectrogram(gt_path)
     if plot_original:
         print("Original ground truth")
-        mel_db = map_to_range(mel, 0, 1, -top_db, 0)
+        mel_db = map_to_range(mel_gt, 0, 1, -top_db, 0)
         plot_mel(mel_db)
 
     print("Autoencoder output")
@@ -170,7 +169,7 @@ def generate(model, ae_output, gt_path, plot_original=True):
     # Prepare data for network
     batch_size = 1  # Use batch size of 1 for single item
     current = np.zeros((batch_size, input_channels, spec_height, unet_width), dtype=np.float32)
-    current[0, 0] = mel[:, 0 : unet_width]
+    current[0, 0] = ae_output[:, 0 : unet_width]
 
     # Feed to model
     mel = generate_sample(model, current)
@@ -182,6 +181,7 @@ def generate(model, ae_output, gt_path, plot_original=True):
     inv_db_final = map_to_range(result, 0, 1, -top_db, 0)
 
     # Plot result
+    print("U-Net output")
     plot_mel(inv_db_final)
 
     return result
