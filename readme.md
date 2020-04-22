@@ -4,6 +4,10 @@ This repository contains the codebase for an end-to-end raw audio resynthesis sy
 written in Python 3. The project was done for the course 
 _ECS7013P - Deep Learning For Audio And Music - 2019/20_ at Queen Mary, University of London.
 
+The aim of the project is to resynthesise recordings of one instrument to another instrument's timbre.
+The system is currently configured to synthesise electronic piano sounds from piano sounds.
+However, by using different datasets, the technique can theoretically be applied to any two instrument types.
+
 A detailed description of the system is given in the `Report.pdf` file.
 
 ## Quick Setup:
