@@ -1,4 +1,4 @@
-###End-to-End Raw Audio Instrument Resynthesis
+# End-to-End Raw Audio Instrument Resynthesis
 
 This repository contains the codebase for an end-to-end raw audio resynthesis system 
 written in Python 3. The project was done for the course 
@@ -6,7 +6,7 @@ _ECS7013P - Deep Learning For Audio And Music - 2019/20_ at Queen Mary, Universi
 
 A detailed description of the system is given in the `Report.pdf` file.
 
-Quick Setup:
+## Quick Setup:
 1. Install [pip](https://pip.pypa.io/en/stable/)
 2. Run `pip install -r requirements.txt` to install the required libraries
 3. If you want to use the pretrained models: 
@@ -37,8 +37,10 @@ Quick Setup:
     - If you use standard Python scripts: Either extend the [Main.py](Main.py) script, or copy the model loading code 
     and use it in your own script.
 
-
+## License
 The code is free to use under the MIT license.
 
-Attributions: The piano recording used used for evaluation (`Clair_de_lune__Claude_Debussy__Suite_bergamasque.wav`) 
+
+## Attributions
+The piano recording used used for evaluation (`Clair_de_lune__Claude_Debussy__Suite_bergamasque.wav`) 
 was performed by Laurens Goedhart and is available in the [public domain](https://commons.wikimedia.org/wiki/File:Clair_de_lune_(Claude_Debussy)_Suite_bergamasque.ogg) under the [Creative Commons Attribution 3.0 Unported](https://creativecommons.org/licenses/by/3.0/deed.en) license.
