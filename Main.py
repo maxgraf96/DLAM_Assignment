@@ -55,4 +55,4 @@ if __name__ == '__main__':
     # Test run a *.wav file through both models
     # This plots the interim results and returns the final output as a numpy array containing
     # the signal's time-series data
-    output_sig = pipeline("data" + sep + "piano" + sep + "chp_op18.wav")
+    output_sig = pipeline("Clair_de_lune__Claude_Debussy__Suite_bergamasque.wav")

@@ -5,5 +5,4 @@ data/MIDI_test/*.mid
 data/piano/*.wav
 data/synth/*.wav
 data/test/*.wav
-results/*
 .idea/*
