@@ -33,11 +33,6 @@ def loss_function(input, target):
     return l2
 
 if __name__ == '__main__':
-    # The U-Net is applied after the autoencoder is trained
-    if not os.path.exists(output_dir):
-        print("Need autoencoder output data in folder " + output_dir + " for training U-Net. Aborting...")
-        sys.exit()
-
     # Load trained model if it exists
     if os.path.exists(model_path):
         print("Unet model exists. Loading model...")
@@ -47,6 +42,11 @@ if __name__ == '__main__':
         print("Unet model loaded.")
 
     else:
+        # The U-Net is applied after the autoencoder is trained
+        if not os.path.exists(output_dir):
+            print("Need autoencoder output data in folder " + output_dir + " for training U-Net. Aborting...")
+            sys.exit()
+
         # Create dataset
         transform = UNetDataset.ToTensor()
         dataset = UNetDataset.UNetDataset(root_dir=output_dir, gt_dir=root_dir, transform=transform)
