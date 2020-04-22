@@ -52,4 +52,7 @@ if __name__ == '__main__':
     unet.eval()
     print("U-Net model loaded.")
 
-    pipeline("data" + sep + "piano" + sep + "chp_op18.wav")
+    # Test run a *.wav file through both models
+    # This plots the interim results and returns the final output as a numpy array containing
+    # the signal's time-series data
+    output_sig = pipeline("data" + sep + "piano" + sep + "chp_op18.wav")
