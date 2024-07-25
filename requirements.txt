@@ -30,4 +30,4 @@ numpy == 1.18.1
 # UNet.py: 2,3,4
 # UNetDataset.py: 4,5
 # UNetMain.py: 6,7
-torch == 1.4.0
+torch == 2.2.0
